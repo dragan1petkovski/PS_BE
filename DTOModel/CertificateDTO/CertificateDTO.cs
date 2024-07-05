@@ -1,0 +1,20 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace DTOModel
+{
+    public class CertificateDTO
+    {
+        public Guid id {  get; set; }
+        public string name { get; set; }
+        public string friendlyname { get; set; }
+        public string issuedby { get; set; }
+        public string issuedto { get; set; }
+        public DateTime expirationdate { get; set; }
+
+        public string teamname { get; set; }
+    }
+}
