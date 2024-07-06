@@ -15,9 +15,14 @@ namespace Services
             _dbContext = dbContext;
         }
 
-        public PasswordDTO GetPasswordById(Guid id)
+        public PasswordDTO GetCredentialPasswordById(Guid id)
         {
             return new PasswordDTO() { password = _dbContext.Credentials.Include(c => c.password).Where(c => c.id == id).First().password.password };
+        }
+
+        public PasswordDTO GetCertificatePasswordById(Guid id)
+        {
+            return new PasswordDTO() { password = _dbContext.Certificates.Include(c => c.password).Where(c => c.id == id).First().password.password };
         }
     }
 }

@@ -15,6 +15,7 @@ namespace DTOModel
         public string issuedto { get; set; }
         public DateTime expirationdate { get; set; }
 
+        public Guid passwordid { get; set; }
         public string teamname { get; set; }
     }
 }

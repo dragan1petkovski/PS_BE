@@ -14,10 +14,17 @@ namespace be.Controllers
             _dbContext = dbContext;
         }
         [HttpGet("{passwordid}")]
-        public PasswordDTO getPasswordByID(Guid passwordid)
+        public PasswordDTO GetCredentialPasswordById(Guid passwordid)
         {
             PasswordService passwordService = new PasswordService(_dbContext);
-            return passwordService.GetPasswordById(passwordid);
+            return passwordService.GetCredentialPasswordById(passwordid);
+        }
+
+        [HttpGet("{passwordid}")]
+        public PasswordDTO GetCertificatePasswordById(Guid passwordid)
+        {
+            PasswordService passwordService = new PasswordService(_dbContext);
+            return passwordService.GetCertificatePasswordById(passwordid);
         }
     }
 }

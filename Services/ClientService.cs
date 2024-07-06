@@ -20,20 +20,22 @@ namespace Services
             if(type == "cred")
             {
 
-                List<ClientDBDM> clients = _dbContext.Users.Include(u => u.clients).Where(u => u.id == userId).First().clients;
-                if(clients.Count > 0)
-                {
-                    return ConvertClientDBDMListToClientDTOList(clients);
-                }
-
-                return new List<ClientDTO>();
+                UserDBDM user = _dbContext.Users.Include(u => u.teams)
+                                                           .Include(u => u.teams).ThenInclude(t => t.client)
+                                                           .Include(u => u.teams).ThenInclude(t => t.credentials).Single(u => u.id == userId);
                 
+                
+
+                return ConvertClientDBDMListToClientDTOList(user.teams.Where(t => t.credentials.Count > 0).Select(t => t.client).ToList());
+
             }
             else if(type == "cert")
             {
-                List<ClientDBDM> clients = _dbContext.Users.Include(u => u.clients).Where(u => u.id == userId).First().clients;
-                
-                return ConvertClientDBDMListToClientDTOList(clients);
+                UserDBDM user = _dbContext.Users.Include(u => u.teams)
+                                                           .Include(u => u.teams).ThenInclude(t => t.client)
+                                                           .Include(u => u.teams).ThenInclude(t => t.certificates).Single(u => u.id == userId);
+
+                return ConvertClientDBDMListToClientDTOList(user.teams.Where(t => t.certificates.Count > 0).Select(t => t.client).ToList());
             }
             else
             {

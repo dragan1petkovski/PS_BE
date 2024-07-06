@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Services;
 using DTOModel;
+using DataAccessLayerDB;
 
 
 namespace be.Controllers
@@ -9,15 +10,17 @@ namespace be.Controllers
     [Route("api/[controller]/[action]")]
     public class CertificateController : ControllerBase
     {
-        private readonly IConfiguration _config;
-        public CertificateController(IConfiguration config)
+        private readonly PSDBContext _dbContext;
+        public CertificateController(PSDBContext dbContext)
         {
-            _config = config;
+            _dbContext = dbContext;
         }
         [HttpGet("{userid}/{clientid}")]
         public IEnumerable<CertificateDTO> GetCertificateByClientID(Guid userid, Guid clientid)
         {
-            return new List<CertificateDTO>();
+            CertificateService certificateService = new CertificateService(_dbContext);
+            
+            return certificateService.GetCertificatesByUserIdClintId(userid, clientid);
         }
     }
 }
