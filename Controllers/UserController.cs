@@ -2,6 +2,7 @@
 using Services;
 using DTOModel.UserDTO;
 using DataAccessLayerDB;
+using System.Text.Json;
 
 namespace be.Controllers
 {
@@ -34,11 +35,12 @@ namespace be.Controllers
 
         }
 
-        [HttpPost()]
-        public string AddUser(UserDTO user)
+        [HttpPost]
+        public string AddUser(PostUserDTO user)
         {
             UserService userService = new UserService(_dbContext);
-            return "";
+            
+            return JsonSerializer.Serialize(userService.AddUser(user));
         }
     }
 }

@@ -22,10 +22,32 @@ namespace Services
             return _dbContext.Users.ToList();
         }
 
-        public SetStatus AddUser(UserDTO newUser)
+        public SetStatus AddUser(PostUserDTO _newUser)
         {
-
-            return new SetStatus() { status = "OK" };
+            try
+            {
+                UserDBDM newUser = new UserDBDM();
+                newUser.createdate = DateTime.Now;
+                newUser.id = Guid.NewGuid();
+                newUser.firstname = _newUser.firstname;
+                newUser.lastname = _newUser.lastname;
+                newUser.email = _newUser.email;
+                newUser.username = _newUser.username;
+                newUser.clients = _dbContext.Clients.Where(c => _newUser.clientTeamPairs.Select(ct => ct.clientid).ToList().Any(ct => ct == c.id)).Distinct().ToList();
+                newUser.teams = _dbContext.Teams.Where(t => _newUser.clientTeamPairs.Select(ct => ct.teamid).ToList().Any(ct => ct == t.id)).Distinct().ToList();
+                newUser.password = "Ovoj text ke se setira poinaku ne preku UI na Administratorot";
+                newUser.updatedate = DateTime.Now;
+                _dbContext.Users.Add(newUser);
+                _dbContext.SaveChanges();
+                return new SetStatus() { status = "OK" };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString(),Console.ForegroundColor = ConsoleColor.Red);
+                Console.ForegroundColor = ConsoleColor.Black;
+                return new SetStatus() { status = "KO" };
+                
+            }
         }
 
         public List<UserDTO> ConvertUserDBDMListToUserFullDTOList(List<UserDBDM> userList)

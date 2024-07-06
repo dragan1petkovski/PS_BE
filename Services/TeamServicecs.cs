@@ -22,15 +22,15 @@ namespace Services
             return ConvertTeamDBDMListToDTOList(_dbContext.Teams.Include(t => t.client).ToList());
         }
     
-        public List<TeamDTOMini> GetAllClientTeamMappingsByUserId(Guid userid) 
+        public List<ClientTeamMapping> GetAllClientTeamMappingsByUserId(Guid userid) 
         {
-            List<TeamDTOMini> output = new List<TeamDTOMini>();
+            List<ClientTeamMapping> output = new List<ClientTeamMapping>();
 
             //User splitQuery() to increase performance
             var listofteams = _dbContext.Users.Include(u => u.teams)
                             .Include(u => u.teams).ThenInclude(t => t.client)
                             .Where(u => u.id == userid).First()
-                            .teams.Select(t => new TeamDTOMini() { teamid = t.id, clientid = t.client.id, teamname = t.name, clientname = t.client.name }).ToList();
+                            .teams.Select(t => new ClientTeamMapping() { teamid = t.id, clientid = t.client.id, teamname = t.name, clientname = t.client.name }).ToList();
             
             foreach( var team in listofteams )
             {
@@ -40,24 +40,19 @@ namespace Services
             return output;
         }
 
-        public List<TeamDTOMini> GetAllClientTeamMappings()
+        public List<ClientTeamMapping> GetAllClientTeamMappings()
         {
-            List<TeamDTOMini> result = new List<TeamDTOMini>();
-
-            _dbContext.Teams.Include(t => t.client).Select(t => new TeamDTOMini()
-            {
-                teamid = t.id,
+            return _dbContext.Teams.Include(t => t.client).Select(t => new ClientTeamMapping(){
                 teamname = t.name,
+                teamid = t.id,
                 clientid = t.client.id,
-
-            });
-
-            return result;
+                clientname = t.client.name,
+            }).ToList();
         }
 
-        private List<TeamDTOMini> ConvertToTeamDTOMini(List<TeamDBDM> teams)
+        private List<ClientTeamMapping> ConvertToTeamDTOMini(List<TeamDBDM> teams)
         {
-            return new List<TeamDTOMini>();
+            return new List<ClientTeamMapping>();
         }
 
         private List<TeamDTO> ConvertTeamDBDMListToDTOList(List<TeamDBDM> teams)

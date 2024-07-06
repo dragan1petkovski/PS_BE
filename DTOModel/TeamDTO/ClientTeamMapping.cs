@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace DTOModel.TeamDTO
 {
-    public class TeamDTOMini
+    public class ClientTeamMapping
     {
         public Guid teamid { get; set; }
         public Guid clientid { get; set; }

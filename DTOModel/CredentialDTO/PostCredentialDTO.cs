@@ -14,7 +14,7 @@ namespace DTOModel.CredentialDTO
         public string note { get; set; }
         public string password { get; set; }
         public string remote {  get; set; }
-        public List<TeamDTOMini> teams { get; set; }
+        public List<ClientTeamMapping> teams { get; set; }
         public string username { get; set; }
     }
 }

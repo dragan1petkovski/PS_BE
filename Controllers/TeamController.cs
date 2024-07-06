@@ -18,7 +18,7 @@ namespace be.Controllers
             _dbContext = dbContext;
         }
         [HttpGet("{userid}")]
-        public IEnumerable<TeamDTOMini> GetAllClientTeamMappingsByUserId(Guid userid)
+        public IEnumerable<ClientTeamMapping> GetAllClientTeamMappingsByUserId(Guid userid)
         {
             TeamServicecs teamService = new TeamServicecs(_dbContext);
             return teamService.GetAllClientTeamMappingsByUserId(userid);
@@ -40,10 +40,10 @@ namespace be.Controllers
 
         }
         [HttpGet]
-        public IEnumerable<TeamDTOMini> GetAllClientTeamMappings()
+        public IEnumerable<ClientTeamMapping> GetAllClientTeamMappings()
         {
             TeamServicecs teamServicecs = new TeamServicecs (_dbContext);
-            return new List<TeamDTOMini>();
+            return teamServicecs.GetAllClientTeamMappings();
         }
     }
 }
