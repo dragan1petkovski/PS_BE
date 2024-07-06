@@ -29,25 +29,50 @@ namespace Services
 
         public List<CredentialDTO> GetCredentialsByUserId(Guid userId, Guid folderid)
         {
-            List<CredentialDTO> personalCredentialList = new List<CredentialDTO> ();
-            UserDBDM user = _dbContext.Users.Include(u => u.folders).ThenInclude(pf => pf.credentials).Where(u => u.id == userId && u.folders.Any(pf => pf.id == folderid)).First();
-            if(user != null)
+            if(folderid != Guid.Empty)
             {
-                foreach(CredentialDBDM credential in user.folders.Single(pf => pf.id == folderid).credentials)
+                List<CredentialDTO> personalCredentialList = new List<CredentialDTO>();
+                UserDBDM user = _dbContext.Users.Include(u => u.folders).ThenInclude(pf => pf.credentials).Where(u => u.id == userId && u.folders.Any(pf => pf.id == folderid)).First();
+                if (user != null)
                 {
-                    personalCredentialList.Add(new CredentialDTO()
+                    foreach (CredentialDBDM credential in user.folders.Single(pf => pf.id == folderid).credentials)
                     {
-                        id = credential.id,
-                        domain = credential.domain,
-                        username = credential.username,
-                        email = credential.email,
-                        remote = credential.remote,
-                        password = "*****",
-                        note = credential.note
-                    });
+                        personalCredentialList.Add(new CredentialDTO()
+                        {
+                            id = credential.id,
+                            domain = credential.domain,
+                            username = credential.username,
+                            email = credential.email,
+                            remote = credential.remote,
+                            password = "*****",
+                            note = credential.note
+                        });
+                    }
                 }
+                return personalCredentialList;
             }
-            return personalCredentialList;
+            else
+            {
+                List<CredentialDTO> personalCredentialList = new List<CredentialDTO>();
+                UserDBDM user = _dbContext.Users.Include(u => u.credentials).Where(u => u.id == userId).First();
+                if (user != null)
+                {
+                    foreach (CredentialDBDM credential in user.credentials)
+                    {
+                        personalCredentialList.Add(new CredentialDTO()
+                        {
+                            id = credential.id,
+                            domain = credential.domain,
+                            username = credential.username,
+                            email = credential.email,
+                            remote = credential.remote,
+                            password = "*****",
+                            note = credential.note
+                        });
+                    }
+                }
+                return personalCredentialList;
+            }
         }
 
         public SetStatus AddCredential(PostCredentialDTO postCredential)

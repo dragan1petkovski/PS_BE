@@ -21,11 +21,12 @@ namespace be.Controllers
             _dbContext = dbContext;
         }
 
-        [HttpGet("{userid}/{folderid}")]
+        [HttpGet("{userid}/{folderid?}")]
         public IEnumerable<CredentialDTO> GetCredentialsByFoderId(Guid userid,Guid folderid)
         {
             CredentialService credentialService = new CredentialService(_dbContext);
             return credentialService.GetCredentialsByUserId(userid,folderid);
+            //return new List<CredentialDTO>();
         }
 
         [HttpGet("{userid}")]
@@ -55,5 +56,6 @@ namespace be.Controllers
             PersonalService personalService = new PersonalService(_dbContext);
             return JsonSerializer.Serialize(personalService.AddPersonalCredential(postPersonalCredential, userid));
         }
+    
     }
 }
