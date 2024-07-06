@@ -147,5 +147,60 @@ namespace Services
             }
 
         }
+    
+        public SetStatus GiveCredential(PostGiveCredentialDTO _giveCredential)
+        {
+            try
+            {
+                CredentialDBDM newCredential = new CredentialDBDM();
+                newCredential.id = Guid.NewGuid();
+                newCredential.domain = _giveCredential.domain;
+                newCredential.username = _giveCredential.username;
+                newCredential.password = new PasswordDBDM() { password = _giveCredential.password, id = Guid.NewGuid(), createdate = DateTime.Now, updatedate = DateTime.Now };
+                newCredential.email = _giveCredential.email;
+                newCredential.createdate = DateTime.Now;
+                newCredential.updatedate = DateTime.Now;
+                newCredential.remote = _giveCredential.remote;
+                newCredential.note = _giveCredential.note;
+
+                _dbContext.Credentials.Add(newCredential);
+
+                List<UserDBDM> users = _dbContext.Users.Where(u => _giveCredential.userids.Any(uid => uid == u.id)).ToList();
+                foreach (UserDBDM user in users)
+                {
+                    if (user.credentials == null || user.credentials.Count == 0)
+                    {
+                        user.credentials = [newCredential];
+                        
+                    }
+                    else
+                    {
+                        user.credentials.Add(newCredential);
+                    }
+
+                }
+
+                List<TeamDBDM> teams = _dbContext.Teams.Where(t => _giveCredential.teamids.Any(tid => tid == t.id)).ToList();
+                foreach (TeamDBDM team in teams)
+                {
+                    if (team.credentials == null || team.credentials.Count == 0)
+                    {
+                        team.credentials = [newCredential];
+                        
+                    }
+                    else
+                    {
+                        team.credentials.Add(newCredential);
+                    }
+                }
+
+                _dbContext.SaveChanges();
+                return new SetStatus() { status = "OK" };
+            }
+            catch
+            {
+                return new SetStatus() { status = "KO" };
+            }
+        }
     }
 }

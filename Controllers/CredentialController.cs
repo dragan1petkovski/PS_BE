@@ -46,5 +46,12 @@ namespace be.Controllers
             return JsonSerializer.Serialize(credentialService.DeleteCredential(userid,teamid,credentialid));
         }
 
+        [HttpPost]
+        public string GiveCredential(PostGiveCredentialDTO giveCredential)
+        {
+            CredentialService credentialService = new CredentialService( _dbContext);
+
+            return JsonSerializer.Serialize(credentialService.GiveCredential(giveCredential));
+        }
     }
 }
