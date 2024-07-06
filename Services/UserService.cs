@@ -52,6 +52,7 @@ namespace Services
 
             foreach (UserDBDM userDBDM in userList)
             {
+                Console.WriteLine(userDBDM.Fullname);
                 result.Add(new UserPartDTO()
                 {
                     id = userDBDM.id,
