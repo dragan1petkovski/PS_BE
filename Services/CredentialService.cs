@@ -4,6 +4,8 @@ using DomainModel.DB;
 using DataAccessLayerDB;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using DTOModel.UserDTO;
+using System.Drawing;
 namespace Services
 {
     public  class CredentialService
@@ -77,52 +79,56 @@ namespace Services
 
         public SetStatus AddCredential(PostCredentialDTO postCredential)
         {
-            Console.WriteLine(JsonSerializer.Serialize(postCredential));
-            CredentialDBDM newCredential = new CredentialDBDM();
 
-            newCredential.id = Guid.NewGuid();
-            newCredential.domain = postCredential.domain;
-            newCredential.password = new PasswordDBDM() { id = Guid.NewGuid(), password= postCredential.password };
-            newCredential.username = postCredential.username;
-            newCredential.email = postCredential.email;
-            newCredential.remote = postCredential.remote;
-            newCredential.note = postCredential.note;
-            newCredential.createdate = DateTime.Now;
-            newCredential.updatedate = DateTime.Now;
-            if(postCredential.teams.Count > 0 && postCredential.teams != null) 
+
+            try
             {
-                foreach (var team in postCredential.teams)
+                List<TeamDBDM> teams = _dbContext.Teams.Include(t => t.credentials)
+                                 .Include(t => t.client)
+                                 .Where(t => postCredential.teams.Select(ct => ct.teamid).Any(ct => ct == t.id))
+                                 .Where(t => postCredential.teams.Select(ct => ct.clientid).Any(ct => ct == t.client.id))
+                                 .ToList();
+
+                teams.ForEach(t =>
                 {
-                    Console.WriteLine("Team Name"+_dbContext.Teams.Find(team.teamid).name);
-                    TeamDBDM tempteam = _dbContext.Teams.Find(team.teamid);
-                    if(tempteam.credentials != null)
+                    CredentialDBDM newCredential = new CredentialDBDM();
+
+                    newCredential.id = Guid.NewGuid();
+                    newCredential.domain = postCredential.domain;
+                    newCredential.password = new PasswordDBDM() { id = Guid.NewGuid(), password = postCredential.password };
+                    newCredential.username = postCredential.username;
+                    newCredential.email = postCredential.email;
+                    newCredential.remote = postCredential.remote;
+                    newCredential.note = postCredential.note;
+                    newCredential.createdate = DateTime.Now;
+                    newCredential.updatedate = DateTime.Now;
+
+                    _dbContext.Passwords.Add(newCredential.password);
+                    _dbContext.Credentials.Add(newCredential);
+                    
+                    if (t.credentials != null)
                     {
-                        tempteam.credentials.Add(newCredential);
-                        _dbContext.Teams.Update(tempteam);
+                        t.credentials.Add(newCredential);
+                        _dbContext.Teams.Update(t);
                     }
                     else
                     {
-                        tempteam.credentials = [newCredential];
-                        _dbContext.Teams.Update(tempteam);
+                        t.credentials = [newCredential];
+                        _dbContext.Teams.Update(t);
                     }
-                    
-                    
-                }
-                _dbContext.Passwords.Add(newCredential.password);
-                _dbContext.Credentials.Add(newCredential);
+
+                });
 
                 _dbContext.SaveChanges();
+                return new SetStatus() { status = "OK" };
             }
-            else
+            catch (Exception ex)
             {
-                _dbContext.Passwords.Add(newCredential.password);
-                _dbContext.Credentials.Add(newCredential);
-
-                _dbContext.SaveChanges();
+                Console.WriteLine(ex.ToString(), Console.ForegroundColor = ConsoleColor.Red);
+                Console.ForegroundColor = ConsoleColor.Black;
+                return new SetStatus() { status = "KO" };
             }
 
-
-            return new SetStatus() { status = "OK" };
         }
     
         public List<CredentialDTO> ConvertCredentialDBDMtoDTO(List<TeamCredentialsMap> credentials)

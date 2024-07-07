@@ -26,7 +26,7 @@ namespace Services
                 
                 
 
-                return ConvertClientDBDMListToClientDTOList(user.teams.Where(t => t.credentials.Count > 0).Select(t => t.client).ToList());
+                return ConvertClientDBDMListToClientDTOList(user.teams.Where(t => t.credentials.Count > 0).Select(t => t.client).Distinct().ToList());
 
             }
             else if(type == "cert")
