@@ -14,8 +14,10 @@ namespace DTOModel
         public string issuedby { get; set; }
         public string issuedto { get; set; }
         public DateTime expirationdate { get; set; }
-
-        public Guid passwordid { get; set; }
         public string teamname { get; set; }
+
+        public bool pem {  get; set; }
+        public Guid teamid {  get; set; }
+        public Guid clientid { get; set; }
     }
 }

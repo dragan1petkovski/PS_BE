@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace DTOModel.UserDTO
 {
-    public class UserDTO
+    public class UserDTO // For Admin table
     {
         public Guid id {  get; set; }
         public string firstname { get; set; }

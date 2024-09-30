@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace DTOModel.UserDTO
 {
-    public class UserPartDTO
+    public class UserPartDTO //data for "Add Team" table
     {
         public Guid id {  get; set; }
         public string username { get; set; }

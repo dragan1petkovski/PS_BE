@@ -9,5 +9,6 @@ namespace DTOModel
     public class SetStatus
     {
         public string status {  get; set; }
+        public string? errorMessage { get; set; }
     }
 }
