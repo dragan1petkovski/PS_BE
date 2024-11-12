@@ -1,13 +1,15 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using DTOModel.PasswordDTO;
-using Services;
+using DTO.Password;
+using AppServices;
 using DataAccessLayerDB;
 using Microsoft.AspNetCore.Authorization;
 using EncryptionLayer;
 using DataMapper;
-using AuthenticationLayer;
-using System.IdentityModel.Tokens.Jwt;
-using System.Text.Json;
+using AAAService.Core;
+using AAAService.Validators;
+using Microsoft.AspNetCore.Identity;
+using DomainModel;
+using LogginMessages;
 
 
 
@@ -23,34 +25,68 @@ namespace be.Controllers
         private readonly SymmetricEncryption _symmetricEncryption;
         private readonly IConfiguration _configuration;
         private readonly PasswordDataMapper _passwordDataMapper;
-        private readonly JwtTokenManager _jwtTokenManager;
-        public PasswordController(PSDBContext dbContext, PasswordService passwordService, SymmetricEncryption symmetricEncryption, IConfiguration configuration, PasswordDataMapper passwordDataMapper, JwtTokenManager jwtTokenManager)
+        private readonly JwtManager _jwtManager;
+        private readonly UserManager<DomainModel.User> _userManager;
+        public PasswordController(PSDBContext dbContext, PasswordService passwordService, SymmetricEncryption symmetricEncryption, IConfiguration configuration, PasswordDataMapper passwordDataMapper, JwtManager jwtManager, UserManager<DomainModel.User> userManager)
         {
             _dbContext = dbContext;
             _service = passwordService;
             _symmetricEncryption = symmetricEncryption;
             _configuration = configuration;
             _passwordDataMapper = passwordDataMapper;
-            _jwtTokenManager = jwtTokenManager;
+            _jwtManager = jwtManager;
+            _userManager = userManager;
+        }
+		
+		[HttpGet("api/[controller]/certificate/{id:guid:required}/{parentid:guid}")]
+		public async Task<IActionResult> CertificatePassword(Guid id, Guid parentid, [FromServices] Validation validation)
+        {
+			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+			if (!(await validation.ProcessAsync()))
+			{
+				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
+			}
+			(_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
+			(StatusMessages status, DTO.Password.Password password) = _service.GetCertificatePasswordById(userid,_dbContext, _symmetricEncryption, _configuration, _passwordDataMapper, id, parentid);
+			if(StatusMessages.Ok == status)
+			{
+				return StatusCode(status, password);
+			}
+			return StatusCode(status, status);
         }
 
-        [HttpPost("api/[controller]/[action]")]
-        public PasswordDTO GetCertificatePasswordById(PasswordString certificatePasswordPostRequest)
+		[HttpGet("api/[controller]/credential/{id:guid:required}/{parentid:guid}")]
+		public async Task<IActionResult> CredentialPassword(Guid id, Guid parentid, [FromServices] Validation validation)
         {
-            return _service.GetCertificatePasswordById(_dbContext, _symmetricEncryption, _configuration, _passwordDataMapper, certificatePasswordPostRequest, _jwtTokenManager, Request.Headers.Authorization);
-        }
-
-        [HttpPost("api/[controller]/[action]")]
-        public PasswordDTO GetCredentialPasswordById(PasswordString credentialPasswordPostRequest)
-        {
-            return _service.GetCredentialPasswordById(_dbContext, _symmetricEncryption, _configuration, _passwordDataMapper, credentialPasswordPostRequest, _jwtTokenManager,Request.Headers.Authorization);
+			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+			if (!(await validation.ProcessAsync()))
+			{
+				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
+			}
+			(_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
+			(StatusMessages status, DTO.Password.Password password) = _service.GetCredentialPasswordById(userid, _dbContext, _symmetricEncryption, _configuration, _passwordDataMapper,id, parentid);
+			if (StatusMessages.Ok == status)
+			{
+				return StatusCode(status, password);
+			}
+			return StatusCode(status, status);
 		}
 
-        [HttpPost("api/[controller]/[action]")]
-        public PasswordDTO GetPersonalPasswordById(PasswordString personalPassword)
+		[HttpGet("api/[controller]/personal/{id:guid:required}/{parentid:guid?}")]
+		public async Task<IActionResult> PersonalPassword(Guid id, Guid parentid, [FromServices] Validation validation)
         {
-
-            return _service.GetPersonalPasswordById(_dbContext, _symmetricEncryption, _configuration, _passwordDataMapper, personalPassword, _jwtTokenManager, Request.Headers.Authorization);
+			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+			if (!(await validation.ProcessAsync()))
+			{
+				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
+			}
+			(_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
+			(StatusMessages status, DTO.Password.Password password) = _service.GetPersonalPasswordById(userid, _dbContext, _symmetricEncryption, _configuration, _passwordDataMapper, id, parentid);
+			if (StatusMessages.Ok == status)
+			{
+				return StatusCode(status, password);
+			}
+			return StatusCode(status, status);
 
 		}
     

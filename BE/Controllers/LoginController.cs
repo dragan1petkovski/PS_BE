@@ -1,19 +1,15 @@
-﻿using DTOModel.LoginDTO;
+﻿using DTO.Login;
 using DomainModel;
-
+using AAAService.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using DataAccessLayerDB;
-using EncryptionLayer;
-using System.Security.Claims;
-using Microsoft.Net.Http.Headers;
-using Microsoft.AspNetCore.CookiePolicy;
-using AuthenticationService;
+using AAAService.Validators;
+using LogginMessages;
 namespace BE.Controllers
 {
 
 	[ApiController]
-	[Route("api/[controller]/[Action]")]
 	[ResponseCache(NoStore = true)]
 	public class LoginController : ControllerBase
 	{
@@ -21,48 +17,43 @@ namespace BE.Controllers
 		private readonly IConfiguration _configuration;
 		private readonly RoleManager<IdentityRole> _roleManager;
 		private readonly PSDBContext _dbContext;
-		public LoginController(UserManager<User> userManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager, PSDBContext dbContext)
+		private readonly ILogger<object> _logger;
+		public LoginController(UserManager<User> userManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager, PSDBContext dbContext, ILogger<object> logger)
 		{
 			_userManager = userManager;
 			_configuration = configuration;
 			_roleManager = roleManager;
 			_dbContext = dbContext;
+			_logger = logger;
 		}
 
-		[HttpPost]
-		public async Task<IActionResult> SignIn(LoginDTO loginUser, [FromServices] AuthenticationService.AuthenticationManager authenticationManager, [FromServices] ILogger<AuthenticationManager> _logger)
+		[HttpPost("api/[controller]")]
+		public async Task<IActionResult> SignIn(Login loginUser, [FromServices] Validation validation, [FromServices] JwtManager _jwtManager)
 		{
-			//There is information leak in the jwt token when there is connection issue to the database
-			User _user = new User();
+			validation.AddValidator(new PasswordValidator(loginUser.username, loginUser.password, _userManager, _dbContext));
+			
+			if(!(await validation.ProcessAsync()))
+			{
+				return StatusCode(StatusMessages.UnauthorizedAccess, StatusMessages.UnauthorizedAccess);
+			}
+			User logged = null;
 			try
 			{
-				_user = await authenticationManager.ValidateUser(loginUser, _userManager, _logger);
+				logged = _dbContext.Users.FirstOrDefault(u => u.UserName.ToLower() == loginUser.username.ToLower());
 			}
 			catch (Exception ex)
 			{
-
+				Console.WriteLine(ex.ToString());
+				return StatusCode(StatusMessages.UnauthorizedAccess, StatusMessages.UnauthorizedAccess);
 			}
-			if(_user != null )
+			try
 			{
-				string jwt = "";
-				try
-				{
-					jwt = await authenticationManager.CreateToken(_userManager, _user, _configuration, _roleManager,_logger);
-					
-				}
-				catch
-				{
-					_logger.LogError($"{DateTime.Now} - Jwt Token can not be created");
-					return StatusCode(401, ("Error", "Problem createding JWT token"));
-				}
-				return StatusCode(200, jwt);
-
-
+				return StatusCode(StatusMessages.Ok, await _jwtManager.CreateToken(_userManager, logged, _configuration, _roleManager, _logger));
 			}
-			else
+			catch
 			{
-
-				return StatusCode(401, ("Error", "Problem createding JWT token"));
+				_logger.LogError($"{DateTime.Now} - Jwt Token can not be created");
+				return StatusCode(StatusMessages.UnauthorizedAccess, StatusMessages.UnauthorizedAccess);
 			}
 			
 		}

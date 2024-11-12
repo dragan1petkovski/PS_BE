@@ -232,8 +232,9 @@ namespace DataAccessLayerDB.Migrations
                     b.Property<string>("userId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<long>("validationCode")
-                        .HasColumnType("bigint");
+                    b.Property<string>("validationCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 

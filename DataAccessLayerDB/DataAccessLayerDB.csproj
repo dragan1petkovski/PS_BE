@@ -25,7 +25,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DomainModel\DomainModel.csproj" />
-    <ProjectReference Include="..\EncryptionLayer\EncryptionLayer.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,21 +1,21 @@
 ﻿using DomainModel;
-using DTOModel.CredentialDTO;
+using DTO.Credential;
 using TransitionObjectMapper;
 
 namespace DataMapper
 {
 	public class CredentialDataMapper
 	{
-		public List<CredentialDTO> ConvertCredentialtoDTO(List<TeamCredentialsMap> credentials)
+		public List<DTO.Credential.Credential> ConvertToCredentialDTO(List<TeamCredentialsMap> credentials)
 		{
-			List<CredentialDTO> output = new List<CredentialDTO>();
+			List<DTO.Credential.Credential> output = new List<DTO.Credential.Credential>();
 
 			foreach (TeamCredentialsMap teamCredentialMap in credentials)
 			{
 
-				foreach (Credential teamcred in teamCredentialMap.credentials)
+				foreach (DomainModel.Credential teamcred in teamCredentialMap.credentials)
 				{
-					output.Add(new CredentialDTO
+					output.Add(new DTO.Credential.Credential
 					{
 						id = teamcred.id,
 						username = teamcred.username,
@@ -34,9 +34,9 @@ namespace DataMapper
 			return output;
 		}
 	
-		public CredentialDTO ConvertToCredentialDTO(Credential credential)
+		public DTO.Credential.Credential ConvertToCredentialDTO(DomainModel.Credential credential)
 		{
-			CredentialDTO output = new CredentialDTO();
+			DTO.Credential.Credential output = new DTO.Credential.Credential();
 			output.id = credential.id;
 			output.username = credential.username;
 			output.domain = credential.domain;
@@ -46,9 +46,9 @@ namespace DataMapper
 			return output;
 		}
 	
-		public PersonalCredentialDTO ConvertToPersonalCredentialDTO(Credential credential)
+		public PersonalCredential ConvertToPersonalCredentialDTO(DomainModel.Credential credential)
 		{
-			PersonalCredentialDTO output = new PersonalCredentialDTO();
+			PersonalCredential output = new PersonalCredential();
 			output.id = credential.id;
 			output.username = credential.username;
 			output.domain = credential.domain;

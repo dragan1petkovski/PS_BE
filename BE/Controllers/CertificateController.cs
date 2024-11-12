@@ -1,95 +1,117 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Services;
-using DTOModel;
+using AppServices;
 using DataAccessLayerDB;
 using DataMapper;
-using AuthenticationLayer;
-using DomainModel;
 using EncryptionLayer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using DTOModel.TeamDTO;
-using Org.BouncyCastle.Tls;
-using Org.BouncyCastle.Ocsp;
+using DTO.Certificate;
+using AAAService.Core;
+using AAAService.Validators;
+using DTO;
+using LogginMessages;
 
 
 namespace be.Controllers
 {
     [ApiController]
-    [ResponseCache(NoStore = true)]
+    
     [Authorize(Roles = "User")]
-    [Route("api/[controller]/[action]")]
     public class CertificateController : ControllerBase
     {
         private readonly PSDBContext _dbContext;
         private readonly CertificateService _service;
         private readonly CertificateDataMapper _dataMapper;
-        private readonly JwtTokenManager _jwtTokenManager;
+        private readonly JwtManager _jwtManager;
         private readonly IConfiguration _configuration;
-        private readonly UserAuthorization _userAuthorization;
-        private readonly UserManager<User> _userManager;
+        private readonly UserManager<DomainModel.User> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
-        public CertificateController(PSDBContext dbContext, CertificateService service, CertificateDataMapper dataMapper, JwtTokenManager jwtTokenManager, IConfiguration configuration, UserAuthorization userAuthorization, UserManager<User> userManager, RoleManager<IdentityRole> roleManager)
+        private readonly ILogger<CertificateService> _logger;
+        public CertificateController(PSDBContext dbContext, CertificateService service, CertificateDataMapper dataMapper, JwtManager jwtManager, IConfiguration configuration, UserManager<DomainModel.User> userManager, RoleManager<IdentityRole> roleManager, ILogger<CertificateService> logger)
         {
             _dbContext = dbContext;
             _service = service;
             _dataMapper = dataMapper;
-            _jwtTokenManager = jwtTokenManager;
+            _jwtManager = jwtManager;
             _configuration = configuration;
-            _userAuthorization = userAuthorization;
             _userManager = userManager;
             _roleManager = roleManager;
+            _logger = logger;
         }
-
-        [HttpGet("{clientid:guid}")]
-        public IEnumerable<CertificateDTO> GetCertificateByClientID(Guid clientid)
+        [HttpGet("api/[controller]/{clientid:guid}")]
+        public async Task<IActionResult> GetCertificateByClientID(Guid clientid, [FromServices] Validation validation)
         {
-            return _service.GetCertificatesByClintId(clientid, _dataMapper, _jwtTokenManager, Request.Headers.Authorization, _dbContext);
-        }
-
-
-        [HttpPost]
-        public async Task<IActionResult> UploadCertificate([FromForm] UploadCertificatecs up, [FromServices] SymmetricEncryption _symmetricEncryption, [FromServices] ILogger<UserAuthorization> _logger)
-        {
-
-            if (_jwtTokenManager.GetUserID(Request.Headers.Authorization, out Guid _userid))
+            validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+            if(!(await validation.ProcessAsync()))
             {
-				if (ModelState.IsValid)
-				{
-					return StatusCode(200, _service.UploadCertificate(_configuration, _dbContext, _userAuthorization, _symmetricEncryption, up, _userid, _logger));
-				}
-                return StatusCode(409);
+                return StatusCode(403, new List<Certificate>());
             }
-            return StatusCode(401);
+            (_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
+            return StatusCode(200,_service.GetCertificatesByClintId(clientid,userid,_dataMapper, _dbContext, _logger));
         }
 
-        [HttpGet("{teamid:guid}/{certificateid:guid}")]
-        public FileContentResult DownloadCertificate(Guid teamid, Guid certificateid)
+
+        [HttpGet("api/[controller]/download/{teamid:guid}/{certificateid:guid}")]
+        public async Task<FileContentResult> DownloadCertificate(Guid teamid, Guid certificateid, [FromServices] Validation validation)
         {
-            RequestDownloadCertificate downloadCertificate = new RequestDownloadCertificate() { certificateId = certificateid, teamId= teamid };
-			ResponseDownloadCertificate output = _service.DownloadCertificate(_dbContext,_configuration,_jwtTokenManager,Request.Headers.Authorization,downloadCertificate);
+			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+			if (!(await validation.ProcessAsync()))
+			{
+				return null;
+			}
+			(_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
+
+			RequestDownloadCertificate downloadCertificate = new RequestDownloadCertificate() { certificateId = certificateid, teamId= teamid };
+			ResponseDownloadCertificate output = _service.DownloadCertificate(_dbContext,_configuration,userid,downloadCertificate);
             Response.Headers.Add("Content-Disposition", $"{output.filename}");
             return output.FileContent;
 		}
 
-		[HttpGet("{teamid:guid}/{certificateid:guid}")]
-		public FileContentResult DownloadKey(Guid teamid, Guid certificateid)
+		[HttpGet("api/[controller]/key/download/{teamid:guid}/{certificateid:guid}")]
+		public async Task<FileContentResult> DownloadKey(Guid teamid, Guid certificateid, [FromServices] Validation validation)
 		{
+			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+			if (!(await validation.ProcessAsync()))
+			{
+				return null;
+			}
+			(_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
 			RequestDownloadCertificate downloadCertificate = new RequestDownloadCertificate() { certificateId = certificateid, teamId = teamid };
-			ResponseDownloadCertificate output = _service.DownloadCertificateKey(_dbContext, _configuration, _jwtTokenManager, Request.Headers.Authorization, downloadCertificate);
+			ResponseDownloadCertificate output = _service.DownloadCertificateKey(_dbContext, _configuration, userid, downloadCertificate);
 			Response.Headers.Add("Content-Disposition", $"{output.filename}");
 			return output.FileContent;
 		}
 
-		[HttpDelete]
-        public async Task<IActionResult> Delete(DeleteItem certItem, [FromServices] ILogger<UserAuthorization> _logger)
-        {
-            if(await _userAuthorization.IsValidLoggedUser(_userManager,_roleManager, _jwtTokenManager,Request.Headers.Authorization,_logger))
-            {
-                
-				return StatusCode(200,_service.Delete(certItem,_dbContext,_configuration,_jwtTokenManager,Request.Headers.Authorization));
+
+		[HttpPost("api/[controller]")]
+		public async Task<IActionResult> UploadCertificate([FromForm] UploadCertificatecs up, [FromServices] SymmetricEncryption _symmetricEncryption, [FromServices] Validation validation)
+		{
+
+			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+			if (!(await validation.ProcessAsync()))
+			{
+				return StatusCode(403);
 			}
-			return StatusCode(404);
+			(_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
+			StatusMessages status = _service.UploadCertificate(_configuration, _dbContext, _symmetricEncryption, up, userid, _logger);
+			return StatusCode(status, status);
+
+		}
+
+		[HttpDelete("api/[controller]/{id:guid}/{teamid:guid}")]
+		public async Task<IActionResult> Delete(Guid id, Guid teamid, [FromServices] Validation validation)
+        {
+
+			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+			if (!(await validation.ProcessAsync()))
+			{
+				return StatusCode(404); ;
+			}
+			(_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
+			StatusMessages status = _service.Delete(id, teamid, _dbContext, _configuration, userid);
+
+			return StatusCode(status, status);
+			
 		}
     }
 }

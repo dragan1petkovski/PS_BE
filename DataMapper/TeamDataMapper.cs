@@ -1,12 +1,12 @@
 ﻿using TransitionObjectMapper;
 using DomainModel;
-using DTOModel.TeamDTO;
+using DTO.Team;
 
 namespace DataMapper
 {
 	public class TeamDataMapper
 	{
-		public List<ClientTeamMapping> ConvertToClientTeamMappingList(List<Team> teams)
+		public List<ClientTeamMapping> ConvertToClientTeamMappingList(List<DomainModel.Team> teams)
 		{
 			return teams.Select(t => new ClientTeamMapping()
 			{
@@ -18,9 +18,9 @@ namespace DataMapper
 
 		}
 
-		public List<TeamDTO> ConvertTeamListToDTOList(List<Team> teams)
+		public List<DTO.Team.Team> ConvertTeamListToDTOList(List<DomainModel.Team> teams)
 		{
-			return teams.Select(t => new TeamDTO()
+			return teams.Select(t => new DTO.Team.Team()
 			{
 				id = t.id,
 				clientid = t.client.id,

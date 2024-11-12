@@ -1,15 +1,18 @@
-﻿using AuthenticationLayer;
-using DataAccessLayerDB;
+﻿using DataAccessLayerDB;
 using DataMapper;
 using DomainModel;
-using DTOModel;
-using DTOModel.TeamDTO;
-using DTOModel.UserDTO;
+using DTO;
+using DTO.Team;
+using DTO.User;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Services;
+using AppServices;
 using System.Text.Json;
+using AAAService.Core;
+using AAAService.Validators;
+using LogginMessages;
+using Org.BouncyCastle.Ocsp;
 
 namespace be.Controllers
 {
@@ -20,102 +23,135 @@ namespace be.Controllers
         private readonly PSDBContext _dbContext;
         private readonly TeamService _service;
         private readonly TeamDataMapper _dataMapper;
-        private readonly JwtTokenManager _jwtTokenManager;
-        private readonly UserAuthorization _userAuthorization;
-        private readonly UserManager<User> _userManager;
+        private readonly UserManager<DomainModel.User> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly JwtManager _jwtManager;
 
-        public TeamController(PSDBContext dbContext, TeamService teamService, TeamDataMapper teamDataMapper, JwtTokenManager jwtTokenManager, UserAuthorization userAuthorization, UserManager<User> userManager, RoleManager<IdentityRole> roleManager)
+        public TeamController(PSDBContext dbContext, TeamService teamService, TeamDataMapper teamDataMapper, JwtManager jwtManager, UserManager<DomainModel.User> userManager, RoleManager<IdentityRole> roleManager)
         {
             _dbContext = dbContext;
 			_service = teamService;
             _dataMapper = teamDataMapper;
-            _jwtTokenManager = jwtTokenManager;
-            _userAuthorization = userAuthorization;
+            _jwtManager = jwtManager;
             _userManager = userManager;
             _roleManager = roleManager;
 
         }
-        
-        
-        [HttpGet("api/[controller]/[action]")]
-		[Authorize(Roles = "User, Administrator")]
-		public IEnumerable<ClientTeamMapping> GetAllClientTeamMappingsByUserId([FromServices] JwtTokenManager _jwtTokenManager)
-        {
-            return _service.GetAllClientTeamMappingsByUserId(_dbContext,_dataMapper,_jwtTokenManager, Request.Headers.Authorization);
-        }
 
-        
-        [HttpGet("api/[controller]/[action]")]
+		#region GET Methods
+		[HttpGet("api/[controller]/{id:guid?}")]
 		[Authorize(Roles = "Administrator")]
-		public IEnumerable<TeamDTO> GetAllTeams()
-        {
-            return _service.GetAllTeams(_dbContext,_dataMapper);
-        }
-
-        
-        [HttpPost("api/[controller]/[action]")]
-		[Authorize(Roles = "Administrator")]
-		public string Create(PostTeamDTO _newTeam)
-        {
-            return JsonSerializer.Serialize(_service.Create(_newTeam,_dbContext));
-
-        }
-        
-        
-        [HttpGet("api/[controller]/[action]")]
-		[Authorize(Roles = "Administrator, User")]
-		public IEnumerable<ClientTeamMapping> GetAllClientTeamMappings()
-        {
-            return _service.GetAllClientTeamMappings(_dbContext);
-        }
-
-
-        [HttpPost("api/[controller]/[action]")]
-        [Authorize(Roles ="Administrator")]
-        public async Task<IActionResult> Update(PostTeamUpdate update, [FromServices] ILogger<UserAuthorization> _logger)
-        {
-            if(await _userAuthorization.IsValidLoggedUser(_userManager,_roleManager,_jwtTokenManager,Request.Headers.Authorization, _logger))
-            {
-				return StatusCode(200, _service.Update(update, _dbContext));
-			}
-			return StatusCode(404);
-
-		}
-
-
-		[HttpGet("api/[controller]/[action]/{id:guid}")]
-		public async Task<GetTeamUpdate> Update(Guid id, [FromServices] RoleManager<IdentityRole> _roleManager, [FromServices] UserDataMapper _userDataMapper, [FromServices] ILogger<UserAuthorization> _logger)
+		public async Task<IActionResult> Read(Guid? id, [FromServices] RoleManager<IdentityRole> _roleManager, [FromServices] UserDataMapper _userDataMapper, [FromServices] Validation validation)
 		{
-			if (await _userAuthorization.IsValidLoggedUser(_userManager, _roleManager, _jwtTokenManager, Request.Headers.Authorization,_logger))
+			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+			validation.AddValidator(new IsUserAdmin(Request.Headers.Authorization, _userManager));
+			if (!(await validation.ProcessAsync()))
 			{
-				return await _service.Update(_dbContext, id, _userDataMapper, _userManager);
+				return StatusCode(403, StatusMessages.AccessDenied);
 			}
-
-			return new GetTeamUpdate();
+			if (!id.HasValue)
+			{
+				(StatusMessages statusCode, var output) = _service.GetAllTeams(_dbContext, _dataMapper);
+				if(StatusMessages.Ok == statusCode)
+				{
+					return StatusCode(statusCode, output);
+				}
+				return StatusCode(statusCode, statusCode);
+			}
+			else
+			{
+				(StatusMessages statusCode, GetTeamUpdate output) = await _service.Update(_dbContext, id.HasValue ? id.Value : Guid.Empty, _userDataMapper, _userManager);
+				return StatusCode(statusCode, output);
+			}
 		}
 
-
-		[HttpDelete("api/[controller]/[action]/")]
-        [Authorize(Roles = "Administrator")]
-        public async Task<IActionResult> Delete(DeleteAdminItem deleteitem, [FromServices] IConfiguration _configuration, [FromServices] CertificateService _certificateService, [FromServices] EmailNotificationService _emailNotificationService, [FromServices] ILogger<UserAuthorization> _logger)
-        {
-            if(await _userAuthorization.IsValidLoggedUser(_userManager,_roleManager, _jwtTokenManager, Request.Headers.Authorization, _logger))
-            {
-				if (_emailNotificationService.TryValidateDeleteCode(_dbContext, deleteitem, out Guid _deleteVerificationId))
-				{
-					DeleteVerification deleteVerification = _dbContext.deleteVerifications.Find(_deleteVerificationId);
-					if (deleteVerification != null)
-					{
-						_dbContext.deleteVerifications.Remove(deleteVerification);
-                        _dbContext.SaveChanges();
-						return StatusCode(200, _service.Delete(deleteitem.id, _certificateService, _dbContext, _configuration));
-					}
-					return StatusCode(404);
-				}
-				return StatusCode(404);
+		[HttpGet("api/[controller]/mapping/{type?}")]
+		[Authorize(Roles = "Administrator, User")]
+		public async Task<IActionResult> ClientTeamMappings(string? type, [FromServices] RoleManager<IdentityRole> _roleManager, [FromServices] UserDataMapper _userDataMapper, [FromServices] Validation validation)
+		{
+			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+			if (!(await validation.ProcessAsync()))
+			{
+				return StatusCode(403, StatusMessages.AccessDenied);
 			}
-            return StatusCode(404);
+			(_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
+			Console.WriteLine(type);
+			if (type == "all")
+			{
+				(int statusCode, dynamic output) = _service.GetAllClientTeamMappings(_dbContext);
+				if (StatusMessages.Ok == statusCode)
+				{
+					return StatusCode(statusCode, output);
+				}
+				return StatusCode(statusCode, statusCode);
+			}
+			else
+			{
+				(int statusCode, List<ClientTeamMapping> output) = _service.GetAllClientTeamMappingsByUserId(userid, _dbContext, _dataMapper);
+				if (StatusMessages.Ok == statusCode)
+				{
+					return StatusCode(statusCode, output);
+				}
+				return StatusCode(statusCode, statusCode);
+			}
+			
+
+		}
+
+		#endregion
+		
+		[HttpPost("api/[controller]")]
+		[Authorize(Roles = "Administrator")]
+		public async Task<IActionResult> Create(PostTeam _newTeam, [FromServices] Validation validation)
+        {
+			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+			validation.AddValidator(new IsUserAdmin(Request.Headers.Authorization, _userManager));
+			if (!(await validation.ProcessAsync()))
+			{
+				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
+			}
+			StatusMessages status = _service.Create(_newTeam,_dbContext);
+			return StatusCode(status, status);
+
+		}
+        
+
+        [HttpPut("api/[controller]")]
+        [Authorize(Roles ="Administrator")]
+        public async Task<IActionResult> Update(PostTeamUpdate update, [FromServices] Validation validation)
+        {
+			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+			validation.AddValidator(new IsUserAdmin(Request.Headers.Authorization, _userManager));
+			if (!(await validation.ProcessAsync()))
+			{
+				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
+			}
+            StatusMessages status = _service.Update(update, _dbContext);
+			return StatusCode(status, status);
+
+		}
+
+		[HttpDelete("api/[controller]/{itemid:guid}/{verificateionCode:int}")]
+        [Authorize(Roles = "Administrator")]
+        public async Task<IActionResult> Delete(Guid itemid, int verificateionCode, [FromServices] IConfiguration _configuration, [FromServices] CertificateService _certificateService, [FromServices] EmailNotificationService _emailNotificationService, [FromServices] AAAService.Core.Validation validation)
+        {
+			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+			validation.AddValidator(new IsUserAdmin(Request.Headers.Authorization, _userManager));
+			validation.AddValidator(new DeleteCodeValidator(_dbContext, _configuration, new DeleteAdminItem() { id = itemid, verificationCode = verificateionCode }));
+			if (!(await validation.ProcessAsync()))
+			{
+				return StatusCode(403,StatusMessages.AccessDenied);
+			}
+			DeleteVerification deleteVerification = _dbContext.deleteVerifications.FirstOrDefault(dv => dv.itemId == itemid && dv.isClicked);
+			if (deleteVerification == null)
+			{
+				return StatusCode(StatusMessages.InvalidVerificationCode, (string)StatusMessages.InvalidVerificationCode);
+			}
+
+			_dbContext.deleteVerifications.Remove(deleteVerification);
+			_dbContext.SaveChanges();
+			StatusMessages status = _service.Delete(itemid, _certificateService, _dbContext, _configuration);
+			return StatusCode(status, status);
         }
     }
 }

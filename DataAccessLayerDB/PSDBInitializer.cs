@@ -1,10 +1,7 @@
 ﻿using DomainModel;
 using Microsoft.AspNetCore.Identity;
-using System.Globalization;
-using EncryptionLayer;
 using Microsoft.Extensions.Configuration;
-using System.Text;
-using TransitionObjectMapper;
+
 
 namespace DataAccessLayerDB
 {
@@ -23,7 +20,7 @@ namespace DataAccessLayerDB
         {
 
             PasswordHasher<User> passwordHasher = new PasswordHasher<User>();
-			SymmetricEncryption se = new SymmetricEncryption();
+			//SymmetricEncryption se = new SymmetricEncryption();
 
 			IdentityRole adminRole = new IdentityRole();
             adminRole.Name = "Administrator";

@@ -1,4 +1,4 @@
-﻿using DTOModel;
+﻿using DTO.Certificate;
 using DomainModel;
 using TransitionObjectMapper;
 using Microsoft.AspNetCore.Http;
@@ -7,17 +7,17 @@ namespace DataMapper
 {
 	public class CertificateDataMapper
 	{
-		public List<CertificateDTO> ConvertCertificateListToCertificateDTOList(List<TeamCertificatesMap> certificates)
+		public List<DTO.Certificate.Certificate> ConvertCertificateListToCertificateDTOList(List<TeamCertificatesMap> certificates)
 		{
-			List<CertificateDTO> result = new List<CertificateDTO>();
+			List<DTO.Certificate.Certificate> result = new List<DTO.Certificate.Certificate>();
 
 			foreach (TeamCertificatesMap certs in certificates)
 			{
-				foreach(Certificate cert in certs.certificates)
+				foreach(DomainModel.Certificate cert in certs.certificates)
 				{
 					if(cert.password == null)
 					{
-						result.Add(new CertificateDTO()
+						result.Add(new DTO.Certificate.Certificate()
 						{
 							name = cert.name,
 							friendlyname = cert.friendlyname,
@@ -34,8 +34,7 @@ namespace DataMapper
 					}
 					else
 					{
-						Console.WriteLine(cert.password.id);
-						result.Add(new CertificateDTO()
+						result.Add(new DTO.Certificate.Certificate()
 						{
 							name = cert.name,
 							friendlyname = cert.friendlyname,

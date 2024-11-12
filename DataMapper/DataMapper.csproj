@@ -13,7 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\DataAccessLayerDB\DataAccessLayerDB.csproj" />
     <ProjectReference Include="..\DomainModel\DomainModel.csproj" />
-    <ProjectReference Include="..\DTOModel\DTOModel.csproj" />
+    <ProjectReference Include="..\DTO\DTO.csproj" />
     <ProjectReference Include="..\EncryptionLayer\EncryptionLayer.csproj" />
     <ProjectReference Include="..\TransitionObjectMap\TransitionObjectMapper.csproj" />
   </ItemGroup>

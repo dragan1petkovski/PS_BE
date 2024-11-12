@@ -1,14 +1,16 @@
 ﻿using DataAccessLayerDB;
-using DTOModel.UserDTO;
+using DTO.User;
 using Microsoft.AspNetCore.Mvc;
 using DomainModel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authorization;
-using DTOModel;
-using AuthenticationLayer;
+using DTO;
+using AAAService.Core;
 using EmailService;
-using Microsoft.Extensions.Configuration;
+using AAAService.Core;
+using AAAService.Validators;
+using LogginMessages;
 
 
 namespace BE.Controllers
@@ -17,139 +19,140 @@ namespace BE.Controllers
 	public class EmailNotificationController : Controller
 	{
 		private readonly PSDBContext _dbContext;
-		private readonly UserManager<User> _userManager;
+		private readonly UserManager<DomainModel.User> _userManager;
+		private readonly JwtManager _jwtManager;
+		private readonly IConfiguration _configuration;
 
-		public EmailNotificationController(PSDBContext dbContext, UserManager<User> userManager)
+		public EmailNotificationController(PSDBContext dbContext, UserManager<DomainModel.User> userManager, JwtManager jwtManager, IConfiguration configuration)
 		{
 			_dbContext = dbContext;
 			_userManager = userManager;
+			_jwtManager = jwtManager;
+			_configuration = configuration;
 		}
 
 		[HttpGet]
 		[ResponseCache(NoStore = true)]
-
-		[Route("{Controller}/{Action}/{id:guid}")]
+		[Route("user/SetNewPassword/{id:guid}")]
 		public IActionResult SetNewPassword(Guid id)
 		{
 			SetNewPassword setNewPassword = new SetNewPassword() { requestid = id };
 			EmailNotification changeRequest = _dbContext.EmailNotifiers.Find(id);
-			if (changeRequest != null)
+			if (changeRequest == null)
 			{
-				if (changeRequest.isClicked)
-				{
-					return StatusCode(404);
-				}
-				else
-				{
-					if ((DateTime.Now - changeRequest.createdon).Minutes < 5)
-					{
-						return View(setNewPassword);
-					}
-					else
-					{
-						return StatusCode(404);
-					}
-				}
+				return StatusCode(StatusMessages.ResourceNotFound, StatusMessages.ResourceNotFound);
 			}
-			else
+			if (changeRequest.isClicked)
 			{
-				return StatusCode(404);
+				return StatusCode(StatusMessages.ResourceNotFound, StatusMessages.ResourceNotFound);
 			}
+
+			if(!Int32.TryParse(_configuration.GetSection("PasswordSetResetExpirationTime").Value, out int passwordExpirationTime))
+			{
+				return StatusCode(StatusMessages.UnableToService,StatusMessages.UnableToService);
+			}
+
+			if ((DateTime.Now - changeRequest.createdon).Minutes > passwordExpirationTime)
+			{
+				return StatusCode(StatusMessages.ResourceNotFound, StatusMessages.ResourceNotFound);
+			}
+
+			return View(setNewPassword);
 
 		}
 
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		[Route("{Controller}/{Action}/{id:guid}")]
-		public async Task<IActionResult> SetNewPassword(SetNewPassword setNewPassword, Guid id)
+		[Route("user/SetNewPassword/{id:guid}")]
+		public async Task<IActionResult> SetNewPassword(Guid id,SetNewPassword setNewPassword )
 		{
 			EmailNotification changeRequest = _dbContext.EmailNotifiers.Include(en => en.user).FirstOrDefault(en => en.Id == id);
-			if (changeRequest != null)
+			if (changeRequest == null)
 			{
-				if (changeRequest.isClicked)
-				{
-					return StatusCode(404);
-				}
-				else
-				{
-					if ((DateTime.Now - changeRequest.createdon).Minutes < 5 && (DateTime.Now - changeRequest.createdon).Hours == 0 && (DateTime.Now - changeRequest.createdon).Days == 0)
-					{
-						if (setNewPassword.password == setNewPassword.confirmpassword)
-						{
-							IdentityResult result = await _userManager.AddPasswordAsync(changeRequest.user, setNewPassword.password);
-							if (result.Succeeded)
-							{
-								_dbContext.EmailNotifiers.Remove(changeRequest);
-								_dbContext.SaveChanges();
-								return Redirect("https://localhost:4200/");
-							}
-							return StatusCode(404);
-						}
-						return View(setNewPassword);
+				return StatusCode(StatusMessages.ResourceNotFound, StatusMessages.ResourceNotFound);
+			}
 
-					}
-					else
-					{
-						return StatusCode(404);
-					}
+			if (changeRequest.isClicked)
+			{
+				return StatusCode(StatusMessages.ResourceNotFound, StatusMessages.ResourceNotFound);
+			}
+
+			if (!Int32.TryParse(_configuration.GetSection("PasswordSetResetExpirationTime").Value, out int ExpirationTime))
+			{
+				return StatusCode(StatusMessages.UnableToService, StatusMessages.UnableToService);
+			}
+
+			if ((DateTime.Now - changeRequest.createdon).Minutes > ExpirationTime && (DateTime.Now - changeRequest.createdon).Hours == 0 && (DateTime.Now - changeRequest.createdon).Days == 0)
+			{
+				return StatusCode(StatusMessages.ResourceNotFound, StatusMessages.ResourceNotFound);
+			}
+			if (setNewPassword.password != setNewPassword.confirmpassword)
+			{
+				return View(setNewPassword);
+			}
+			
+			if(changeRequest.type == TypeEnum.SetNewPassword)
+			{
+				IdentityResult result = await _userManager.AddPasswordAsync(changeRequest.user, setNewPassword.password);
+				if (result.Succeeded)
+				{
+					_dbContext.EmailNotifiers.Remove(changeRequest);
+					_dbContext.SaveChanges();
+					return Redirect("https://localhost:4200/");
 				}
 			}
-			else
+			else if(changeRequest.type == TypeEnum.ResetPassword)
 			{
-				return StatusCode(404);
+				IdentityResult result = await _userManager.ResetPasswordAsync(changeRequest.user, changeRequest.validationCode, setNewPassword.password);
+				if(result.Succeeded)
+				{
+					_dbContext.EmailNotifiers.Remove(changeRequest);
+					_dbContext.SaveChanges();
+					return Redirect("https://localhost:4200/");
+				}
 			}
+			return StatusCode(StatusMessages.ResourceNotFound, StatusMessages.ResourceNotFound);
 		}
 
 		[Authorize(Roles = "Administrator")]
-		[HttpPost("api/[Controller]/[Action]")]
-		public async Task<IActionResult> DeleteVerification([FromBody] DeleteAdminRequest item, [FromServices] JwtTokenManager _jwtTokenManager, [FromServices] UserAuthorization _userAuthorization, [FromServices] MailJetMailer _mailjetMailer, [FromServices] IConfiguration _configuration, [FromServices] ILogger<UserAuthorization> _logger)
+		[HttpPost("api/deleterequest")]
+		public async Task<IActionResult> DeleteVerificationRequest([FromBody] DeleteAdminRequest item, [FromServices] MailJetMailer _mailjetMailer, [FromServices] IConfiguration _configuration, [FromServices] Validation validation)
 		{
-			bool flag = Enum.TryParse(typeof(ItemType), item.type, out object type);
-			if (await _userAuthorization.IsLoggedUserAdmin(_userManager, _jwtTokenManager, Request.Headers.Authorization, _logger) && flag)
+			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
+			validation.AddValidator(new IsUserAdmin(Request.Headers.Authorization, _userManager));
+			if (!(await validation.ProcessAsync()))
 			{
-				if (_jwtTokenManager.GetUserID(Request.Headers.Authorization, out Guid _userid))
-				{
-					User user = _dbContext.Users.Find(_userid.ToString());
-					if (user != null)
-					{
-						Random random = new Random();
-						DomainModel.DeleteVerification deleteItem = new DeleteVerification();
-						deleteItem.id = Guid.NewGuid();
-						deleteItem.requestor = user;
-						deleteItem.type = (ItemType)type;
-						deleteItem.itemId = item.id;
-						deleteItem.isClicked = false;
+				return StatusCode(404,StatusMessages.ResourceNotFound);
+			}
+			(_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
+			DomainModel.User user = _dbContext.Users.Find(userid.ToString());
+			if(user == null)
+			{
+				return StatusCode(404,StatusMessages.ResourceNotFound);
+			}
 
-						int code = random.Next(10000000, 100000000);
-						deleteItem.verificationCode = code;
-						deleteItem.createdate = DateTime.Now;
+			bool flag = Enum.TryParse(typeof(ItemType), item.type, out object type);
+			Random random = new Random();
+			DomainModel.DeleteVerification deleteItem = new DeleteVerification();
+			deleteItem.id = Guid.NewGuid();
+			deleteItem.requestor = user;
+			deleteItem.type = (ItemType)type;
+			deleteItem.itemId = item.id;
+			deleteItem.isClicked = false;
 
-						if (await _mailjetMailer.SendMailMessage(_configuration, user.NormalizedEmail, _mailjetMailer.GetVerificationCode(user.NormalizedUserName, code), _mailjetMailer.Subject))
-						{
-							_dbContext.deleteVerifications.Add(deleteItem);
-							_dbContext.SaveChanges();
-							return StatusCode(200);
-						}
-						else
-						{
-							return StatusCode(404);
-						}
-					}
-					else
-					{
-						return StatusCode(404);
-					}
-					
-				}
-				else
-				{
-					return StatusCode(404);
-				}
+			int code = random.Next(10000000, 100000000);
+			deleteItem.verificationCode = code;
+			deleteItem.createdate = DateTime.Now;
 
+			if (await _mailjetMailer.SendMailMessage(_configuration, user.NormalizedEmail, _mailjetMailer.GetVerificationCode(user.NormalizedUserName, code), _mailjetMailer.Subject))
+			{
+				_dbContext.deleteVerifications.Add(deleteItem);
+				_dbContext.SaveChanges();
+				return StatusCode(200);
 			}
 			else
 			{
-				return StatusCode(404);
+				return StatusCode(404,StatusMessages.ResourceNotFound);
 			}
 
 		}

@@ -1,16 +1,16 @@
-﻿using DTOModel.ClientDTO;
+﻿using DTO.Client;
 using DomainModel;
 
 namespace DataMapper
 {
 	public class ClientDataMapper
 	{
-		public List<ClientDTOForUsers> ConvertClientListToClientDTOListForUsers(List<Client> clients)
+		public List<ClientForUsers> ConvertClientListToClientDTOListForUsers(List<Client> clients)
 		{
-			List<ClientDTOForUsers> output = new List<ClientDTOForUsers>();
+			List<ClientForUsers> output = new List<ClientForUsers>();
 			foreach (Client client in clients)
 			{
-				output.Add(new ClientDTOForUsers()
+				output.Add(new ClientForUsers()
 				{
 					name = client.name,
 					id = client.id
@@ -19,12 +19,12 @@ namespace DataMapper
 			return output;
 		}
 
-		public List<ClientDTOForAdmins> ConvertClientListToClientDTOListForAdmins(List<Client> clients)
+		public List<ClientForAdmins> ConvertClientListToClientDTOListForAdmins(List<Client> clients)
 		{
-			List<ClientDTOForAdmins> output = new List<ClientDTOForAdmins>();
+			List<ClientForAdmins> output = new List<ClientForAdmins>();
 			foreach (Client client in clients)
 			{
-				output.Add(new ClientDTOForAdmins()
+				output.Add(new ClientForAdmins()
 				{
 					name = client.name,
 					id = client.id,

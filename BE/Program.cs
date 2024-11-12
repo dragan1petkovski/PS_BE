@@ -1,19 +1,18 @@
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using DomainModel;
 using DataAccessLayerDB;
 using System.Text;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using DomainModel;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using AuthenticationService;
-using Services;
-using DataMapper;
-using EncryptionLayer;
-using AuthenticationLayer;
-using EmailService;
 using Serilog;
 using Serilog.Events;
-using BE.signalr;
+using AAAService.Core;
+using LogginMessages;
+using AppServices;
+using DataMapper;
+using EmailService;
+using EncryptionLayer;
 
 namespace be
 {
@@ -56,8 +55,32 @@ namespace be
 				Log.Fatal("Can NOT connect to the database - {0}\nDetails:\n{1}\n\n", DateTime.Now, ex.ToString());
 			}
 
+            builder.Services.AddScoped<Validation>();
+            builder.Services.AddScoped<JwtManager>();
+			builder.Services.AddScoped<UserService>();
+			builder.Services.AddScoped<UserDataMapper>();
+
+			builder.Services.AddScoped<CredentialService>();
+			builder.Services.AddScoped<CredentialDataMapper>();
+
+			builder.Services.AddScoped<ClientService>();
+			builder.Services.AddScoped<ClientDataMapper>();
+
+			builder.Services.AddScoped<TeamService>();
+			builder.Services.AddScoped<TeamDataMapper>();
 
 
+			builder.Services.AddScoped<CertificateService>();
+			builder.Services.AddScoped<CertificateDataMapper>();
+
+			builder.Services.AddScoped<PersonalService>();
+
+			builder.Services.AddScoped<PasswordService>();
+			builder.Services.AddScoped<PasswordDataMapper>();
+			builder.Services.AddScoped<SymmetricEncryption>();
+
+			builder.Services.AddScoped<EmailNotificationService>();
+			builder.Services.AddScoped<MailJetMailer>();
 			//builder.Services.AddTransient<PSDBInitializer>();
 
 			builder.Services.AddIdentityApiEndpoints<User>(option =>
@@ -89,35 +112,6 @@ namespace be
 								};
 							});
 
-			builder.Services.AddScoped<AuthenticationManager>();
-            builder.Services.AddScoped<UserAuthorization>();
-
-            builder.Services.AddScoped<UserService>();
-            builder.Services.AddScoped<UserDataMapper>();
-
-            builder.Services.AddScoped<CredentialService>();
-            builder.Services.AddScoped<CredentialDataMapper>();
-
-            builder.Services.AddScoped<ClientService>();
-            builder.Services.AddScoped<ClientDataMapper>();
-
-            builder.Services.AddScoped<TeamService>();
-            builder.Services.AddScoped<TeamDataMapper>();
-
-
-            builder.Services.AddScoped<CertificateService>();
-            builder.Services.AddScoped<CertificateDataMapper>();
-
-            builder.Services.AddScoped<PersonalService>();
-
-            builder.Services.AddScoped<PasswordService>();
-            builder.Services.AddScoped<PasswordDataMapper>();
-            builder.Services.AddScoped<SymmetricEncryption>();
-
-            builder.Services.AddScoped<JwtTokenManager>();
-
-            builder.Services.AddScoped<EmailNotificationService>();
-            builder.Services.AddScoped<MailJetMailer>();
 
             builder.Services.AddMvc();
 
@@ -129,7 +123,7 @@ namespace be
 
 
             app.MapControllers();
-            app.MapHub<DataSync>("api/datasync");
+            //app.MapHub<DataSync>("api/datasync");
             //Auto Database Initialization
             //using (var scope = app.Services.CreateScope())
             //{

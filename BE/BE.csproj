@@ -26,10 +26,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AuthenticationLayer\AuthenticationLayer.csproj" />
-    <ProjectReference Include="..\DTOModel\DTOModel.csproj" />
-    <ProjectReference Include="..\EmailService\EmailService.csproj" />
-    <ProjectReference Include="..\Services\Services.csproj" />
+    <ProjectReference Include="..\AAAService\AAAService.csproj" />
+    <ProjectReference Include="..\AppServices\AppServices.csproj" />
+    <ProjectReference Include="..\DataAccessLayerDB\DataAccessLayerDB.csproj" />
+    <ProjectReference Include="..\DomainModel\DomainModel.csproj" />
+    <ProjectReference Include="..\DTO\DTO.csproj" />
   </ItemGroup>
 
 </Project>
