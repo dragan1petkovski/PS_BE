@@ -42,13 +42,14 @@ namespace AppServices
 
 		}
 
-        public StatusMessages UploadCertificate(IConfiguration configuration, PSDBContext _dbContext, SymmetricEncryption _symmetricEncryption, UploadCertificatecs uploadCertificate, Guid _userid, ILogger _logger)
+        public (StatusMessages,List<DTO.Certificate.Certificate>) UploadCertificate(IConfiguration configuration, PSDBContext _dbContext, SymmetricEncryption _symmetricEncryption, UploadCertificatecs uploadCertificate, Guid _userid, ILogger _logger)
         {
-			Console.WriteLine("Debug#1: ");
+			DTO.Certificate.Certificate syncCertificate = new DTO.Certificate.Certificate();
+			List<DTO.Certificate.Certificate> outputList = new List<DTO.Certificate.Certificate> ();
 			(bool pairStatus, List<ClientTeamPair> pairList) = IsCertificateUploadAuthorization(uploadCertificate.team, _dbContext, _userid, _logger);
 			if(!pairStatus)
 			{
-				return  StatusMessages.AccessDenied;
+				return  (StatusMessages.AccessDenied,null);
 			}
 			List<IFormFile> files = new List<IFormFile>();
 			files.Add(uploadCertificate.certfile);
@@ -73,12 +74,12 @@ namespace AppServices
 					{
 						_logger.LogInformation($"{DateTime.Now} - Invalid Certificate file name\n");
 						_logger.LogDebug($"{DateTime.Now} - Invalid Certificate file names:  {string.Join(',', files.Select(f => f.Name).ToList())}\n");
-						return StatusMessages.InvalidName;
+						return (StatusMessages.InvalidName,null);
 					}
 					if (!TryPemCertificateValidation(configuration, uploadCertificate.certfile, uploadCertificate.certkey, certfile.currentFileName, keyfile.currentFileName, out X509Certificate2 validCertificate))
 					{
 						_logger.LogInformation($"{DateTime.Now} - Invalid construction of certificate using PEM files\n");
-						return StatusMessages.InvalidCertificate;
+						return (StatusMessages.InvalidCertificate,null);
 					}
 
 					DomainModel.Certificate newCertificate = new DomainModel.Certificate();
@@ -93,6 +94,13 @@ namespace AppServices
 					newCertificate.createdate = DateTime.Now;
 					newCertificate.updatedate = DateTime.Now;
 
+					syncCertificate.id = newCertificate.id;
+					syncCertificate.name = newCertificate.name;
+					syncCertificate.issuedto = newCertificate.issuedTo;
+					syncCertificate.issuedby = newCertificate.issuedBy;
+					syncCertificate.friendlyname = newCertificate.friendlyname;
+					syncCertificate.expirationdate = newCertificate.expirationDate;
+					
 
 					Client client = _dbContext.Clients.Include(c => c.teams).FirstOrDefault(c => c.id == pair.clientid);
 					if (client == null)
@@ -111,18 +119,38 @@ namespace AppServices
 					if (team.credentials != null)
 					{
 						team.certificates.Add(newCertificate);
+						syncCertificate.teamid = team.id;
 					}
 					else
 					{
 						team.certificates = [newCertificate];
+						syncCertificate.teamid = team.id;
 					}
-					_dbContext.Teams.Update(team);
-					_dbContext.CertificatesFile.Add(certfile);
-					_dbContext.CertificatesFile.Add(keyfile);
-					_dbContext.Certificates.Add(newCertificate);
-					_dbContext.SaveChanges();
+
+					try
+					{
+						_dbContext.Teams.Update(team);
+						_dbContext.CertificatesFile.Add(certfile);
+						_dbContext.CertificatesFile.Add(keyfile);
+						_dbContext.Certificates.Add(newCertificate);
+						outputList.Add(syncCertificate);
+					}
+					catch (Exception ex)
+					{
+						return (StatusMessages.UnableToService, null);
+					}
+
 				}
-				return StatusMessages.AddNewCertificate;
+				try
+				{
+					_dbContext.SaveChanges();
+					return (StatusMessages.AddNewCertificate, outputList);
+				}
+				catch
+				{
+					return (StatusMessages.UnableToService, null);
+				}
+				
 			}
 			else if(uploadCertificate.certpass != null && uploadCertificate.certkey == null)
 			{
@@ -139,12 +167,12 @@ namespace AppServices
 					{
 						_logger.LogInformation($"{DateTime.Now} - Invalid Certificate file name\n");
 						_logger.LogDebug($"{DateTime.Now} - Invalid Certificate file names:  {string.Join(',', files.Select(f => f.Name).ToList())}\n");
-						return StatusMessages.InvalidName;
+						return (StatusMessages.InvalidName,null);
 					}
 					if (!TryCertificateValidation(configuration, uploadCertificate.certfile, certfile.currentFileName, uploadCertificate.certpass, out X509Certificate2 validCertificate))
 					{
 						_logger.LogInformation($"{DateTime.Now} - Invalid construction of certificate using cert file or cert password\n");
-						return StatusMessages.InvalidCertificate;
+						return (StatusMessages.InvalidCertificate,null);
 					}
 
 					DomainModel.Certificate newCertificate = new DomainModel.Certificate();
@@ -157,6 +185,14 @@ namespace AppServices
 					newCertificate.file = certfile;
 					newCertificate.createdate = DateTime.Now;
 					newCertificate.updatedate = DateTime.Now;
+
+					syncCertificate.id = newCertificate.id;
+					syncCertificate.name = newCertificate.name;
+					syncCertificate.issuedto = newCertificate.issuedTo;
+					syncCertificate.issuedby = newCertificate.issuedBy;
+					syncCertificate.friendlyname = newCertificate.friendlyname;
+					syncCertificate.expirationdate = newCertificate.expirationDate;
+
 					SymmetricKey key = _symmetricEncryption.EncryptString(uploadCertificate.certpass, configuration);
 
 					newCertificate.password = new Password() { aad = key.aad, password = key.password, createdate = DateTime.Now, updatedate = DateTime.Now, id = Guid.NewGuid() };
@@ -177,23 +213,40 @@ namespace AppServices
 					if (team.credentials != null)
 					{
 						team.certificates.Add(newCertificate);
+						syncCertificate.teamid = team.id;
 					}
 					else
 					{
 						team.certificates = [newCertificate];
+						syncCertificate.teamid = team.id;
 					}
-					_dbContext.Teams.Update(team);
-					_dbContext.Passwords.Add(newCertificate.password);
-					_dbContext.CertificatesFile.Add(certfile);
-					_dbContext.Certificates.Add(newCertificate);
-					_dbContext.SaveChanges();
+					try
+					{
+						_dbContext.Teams.Update(team);
+						_dbContext.Passwords.Add(newCertificate.password);
+						_dbContext.CertificatesFile.Add(certfile);
+						_dbContext.Certificates.Add(newCertificate);
+					}
+					catch
+					{
+						return (StatusMessages.UnableToService, null);
+					}
+					
 				}
-				return StatusMessages.AddNewCertificate;
+				try
+				{
+					_dbContext.SaveChanges();
+					return (StatusMessages.AddNewCertificate,outputList);
+				}
+				catch
+				{
+					return(StatusMessages.UnableToService,null);
+				}
 			}
 			else
 			{
 				_logger.LogCritical($"{DateTime.Now} - Invalid upload for constructing certificate\n");
-				return StatusMessages.InvalidCertificate;
+				return (StatusMessages.InvalidCertificate,null);
 			}
 			
         }

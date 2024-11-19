@@ -13,9 +13,12 @@ using DTO.Team;
 using AAAService.Validators;
 using DTO.Client;
 using LogginMessages;
+using Microsoft.AspNetCore.SignalR;
+using SignalR;
+using Newtonsoft.Json;
 
 
-namespace be.Controllers
+namespace BE.Controllers
 {
 	[ApiController]
 	[ResponseCache(NoStore = true)]
@@ -29,8 +32,9 @@ namespace be.Controllers
 		private readonly JwtManager _jwtManager;
 		private readonly RoleManager<IdentityRole> _roleManager;
 		private readonly ILogger<UserService> _logger;
+		private readonly IHubContext<DataSync> _hubContext;
 
-		public UserController(PSDBContext dbContext, UserService service, UserDataMapper dataMapper, IConfiguration configuration, UserManager<DomainModel.User> userManager, JwtManager jwtManager, RoleManager<IdentityRole> roleManager, ILogger<UserService> logger)
+		public UserController(PSDBContext dbContext, UserService service, UserDataMapper dataMapper, IConfiguration configuration, UserManager<DomainModel.User> userManager, JwtManager jwtManager, RoleManager<IdentityRole> roleManager, ILogger<UserService> logger, IHubContext<DataSync> hubContext)
 		{
 			_dbContext = dbContext;
 			_service = service;
@@ -40,6 +44,7 @@ namespace be.Controllers
 			_jwtManager = jwtManager;
 			_roleManager = roleManager;
 			_logger = logger;
+			_hubContext = hubContext;
 		}
 
 		[HttpGet("api/[controller]/{type?}/{id:guid?}")]
@@ -57,9 +62,10 @@ namespace be.Controllers
 					return StatusCode(403, StatusMessages.AccessDenied);
 				}
 				_logger.LogError($"Query parameter value: {id}");
+				(bool _, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
 				if (!id.HasValue)
 				{
-					return StatusCode(200, _dataMapper.ConvertUserListToUserFullDTOList(_service.GetAllUsers(_dbContext)));
+					return StatusCode(200, _dataMapper.ConvertUserListToUserFullDTOList(_service.GetAllUsers(_dbContext)).Where(u => u.id != userid).ToList());
 				}
 				else
 				{
@@ -104,7 +110,11 @@ namespace be.Controllers
 			{
 				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
 			}
-			StatusMessages status = await _service.AddUser(user, _dbContext, _configuration, smtpclient, _logger);
+			(StatusMessages status, DTO.User.User data) = await _service.AddUser(user, _dbContext, _configuration, smtpclient, _logger);
+			if(status == StatusMessages.AddNewUser)
+			{
+				_hubContext.Clients.Group("user").SendAsync("AdminNotification", JsonConvert.SerializeObject(new { status = "new", type = "user", data = data }));
+			}
 			return StatusCode(status, status);
 		}
 
@@ -134,7 +144,11 @@ namespace be.Controllers
 			{
 				return StatusCode(401, StatusMessages.UnauthorizedAccess);
 			}
-			StatusMessages status = _service.Update(updateUserDTO, _dbContext, _logger);
+			(StatusMessages status, DTO.User.User data) = _service.Update(updateUserDTO, _dbContext, _logger);
+			if(status == StatusMessages.UpdateUser)
+			{
+				_hubContext.Clients.Group("user").SendAsync("AdminNotification", JsonConvert.SerializeObject(new { status = "update", type = "user", data = data }));
+			}
 			return StatusCode(status, status);
 		}
 
@@ -173,6 +187,10 @@ namespace be.Controllers
 			_dbContext.deleteVerifications.Remove(deleteVerification);
 			_dbContext.SaveChanges();
 			StatusMessages status = _service.Delete(itemid, _dbContext, _logger);
+			if(StatusMessages.DeleteUser == status)
+			{
+				_hubContext.Clients.Group("user").SendAsync("AdminNotification", JsonConvert.SerializeObject(new { status = "delete", type = "user", data = itemid }));
+			}
 			return StatusCode(status, (string)status);
         }
     }

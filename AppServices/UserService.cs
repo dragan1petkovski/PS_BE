@@ -10,8 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 using Microsoft.Extensions.Logging;
 
-using Microsoft.AspNetCore.Mvc;
-using DTO;
+
 using DataMapper;
 
 namespace AppServices
@@ -24,22 +23,24 @@ namespace AppServices
             return _dbContext.Users.ToList();
         }
 
-		public async Task<StatusMessages> AddUser(PostUser _newUser, PSDBContext _dbContext, IConfiguration _configuration, MailJetMailer _smtpclient, ILogger<UserService> _logger)
+		public async Task<(StatusMessages,DTO.User.User)> AddUser(PostUser _newUser, PSDBContext _dbContext, IConfiguration _configuration, MailJetMailer _smtpclient, ILogger<UserService> _logger)
         {
 			bool ifExit = true;
+			DTO.User.User syncUser = new DTO.User.User();
 			try
 			{
 				ifExit = _dbContext.Users.Any(u => u.Email == _newUser.email || u.NormalizedEmail == _newUser.email.Normalize() || u.UserName == _newUser.username || u.NormalizedUserName == _newUser.username.Normalize());
 			}
 			catch
 			{
-				return StatusMessages.UnableToService;
+				Console.WriteLine("First unable to Server");
+				return (StatusMessages.UnableToService,null);
 			}
 
 			if (ifExit)
 			{
-				_logger.LogError($"{DateTime.Now} - User exist with the email: {_newUser.email}");
-				return StatusMessages.UserExist;
+				_logger.LogError($"{DateTime.Now} - User exist with\nEmail: {_newUser.email} or\nUsername: {_newUser.username}");
+				return (StatusMessages.UserExist,null);
 			}
 			else
 			{
@@ -52,6 +53,7 @@ namespace AppServices
 				newUser.Email = _newUser.email;
 				newUser.NormalizedEmail = newUser.Email.Normalize();
 				newUser.UserName = _newUser.username;
+				newUser.NormalizedUserName = _newUser.username.Normalize();
 				newUser.teams = _dbContext.Teams.Where(t => _newUser.clientTeamPairs.Select(ct => ct.teamid).ToList().Any(ct => ct == t.id)).Distinct().ToList();
 				newUser.EmailConfirmed = false;
 				newUser.updatedate = DateTime.Now;
@@ -68,29 +70,40 @@ namespace AppServices
 				setnewpassword.createdon = DateTime.Now;
 				setnewpassword.user = newUser;
 
+
+				syncUser.username = newUser.UserName;
+				syncUser.email = newUser.Email;
+				syncUser.firstname = newUser.firstname;
+				syncUser.lastname = newUser.lastname;
+				syncUser.id = Guid.Parse(newUser.Id);
+				syncUser.createdate = newUser.createdate;
+				syncUser.updatedate = newUser.updatedate;
+
+
 				string body = _smtpclient.ResetPasswordBody(newUser.NormalizedUserName, setnewpassword.Id.ToString());
 
-				if (await _smtpclient.SendMailMessage(_configuration, newUser.NormalizedEmail, body, _smtpclient.Subject))
+				try
 				{
-					try
+					if (await _smtpclient.SendMailMessage(_configuration, newUser.NormalizedEmail, body, _smtpclient.Subject))
 					{
-						_dbContext.EmailNotifiers.Add(setnewpassword);
 						_dbContext.Users.Add(newUser);
-						_dbContext.SaveChanges();
-						return StatusMessages.AddNewUser;
 					}
-					catch (Exception ex)
+					else
 					{
-						_logger.LogError(DatabaseLog.DBConnectionLog(ex.ToString()));
-						return StatusMessages.UnableToService;
+						_logger.LogError($"{DateTime.Now} - Server cannot connecto to the mailjet server to send the mail");
+						return (StatusMessages.UnableToService, null);
 					}
-
+					_dbContext.EmailNotifiers.Add(setnewpassword);
+					
+					_dbContext.SaveChanges();
+					return (StatusMessages.AddNewUser,syncUser);
 				}
-				else
+				catch (Exception ex)
 				{
-					_logger.LogError($"{DateTime.Now} - Server cannot connecto to the mailjet server to send the mail");
-					return StatusMessages.UnableToService;
+					_logger.LogError(DatabaseLog.DBConnectionLog(ex.ToString()));
+					return (StatusMessages.UnableToService,null);
 				}
+
 
 			}
 		}
@@ -249,9 +262,10 @@ namespace AppServices
 			}
 		}
     
-        public StatusMessages Update(PostUpdateUser update, PSDBContext _dbContext, ILogger<UserService> _logger)
+        public (StatusMessages,DTO.User.User) Update(PostUpdateUser update, PSDBContext _dbContext, ILogger<UserService> _logger)
         {
 			DomainModel.User updateUser = new DomainModel.User();
+			DTO.User.User syncUser = new DTO.User.User();
             try
             {
 				updateUser = _dbContext.Users.Include(u => u.teams).FirstOrDefault(u => u.Id == update.id.ToString());
@@ -259,11 +273,11 @@ namespace AppServices
             catch(Exception ex)
             {
 				_logger.LogError(DatabaseLog.DBConnectionLog(ex.ToString()));
-				return StatusMessages.UnableToService;
+				return (StatusMessages.UnableToService,null);
 			}
             if(updateUser == null)
             {
-				return StatusMessages.UserNotexist;
+				return (StatusMessages.UserNotexist,null);
 			}
 
 			updateUser.UserName = update.username;
@@ -273,6 +287,13 @@ namespace AppServices
 			updateUser.NormalizedEmail = updateUser.Email.Normalize();
 			updateUser.NormalizedUserName = updateUser.UserName.Normalize();
 			updateUser.teams.RemoveAll(t => true);
+			
+			syncUser.username = updateUser.UserName;
+			syncUser.email = updateUser.Email;
+			syncUser.firstname = updateUser.firstname;
+			syncUser.lastname = updateUser.lastname;
+			syncUser.id = Guid.Parse(updateUser.Id);
+			syncUser.createdate = updateUser.createdate;
 
 
 			foreach (ClientTeamPair ct in update.clientTeamPairs)
@@ -285,17 +306,26 @@ namespace AppServices
 				catch (Exception ex)
 				{
 					_logger.LogError(DatabaseLog.DBConnectionLog(ex.ToString()));
-					return StatusMessages.UnableToService;
+					return (StatusMessages.UnableToService,null);
 				}
 				if (team != null)
 				{
 					updateUser.teams.Add(team);
 				}
 			}
-			updateUser.updatedate = DateTime.Now;
-			_dbContext.Users.Update(updateUser);
-			_dbContext.SaveChanges();
-			return StatusMessages.UpdateUser;
+			try
+			{
+				updateUser.updatedate = DateTime.Now;
+				_dbContext.Users.Update(updateUser);
+				_dbContext.SaveChanges();
+				syncUser.updatedate = updateUser.updatedate;
+				return (StatusMessages.UpdateUser, syncUser);
+			}
+			catch
+			{
+				return (StatusMessages.UnableToService, null);
+			}
+
 		}
 
         public UpdateUser GetUserDetails(Guid Id, PSDBContext _dbContext, ILogger _logger)

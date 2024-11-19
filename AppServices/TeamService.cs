@@ -75,10 +75,11 @@ namespace AppServices
 			}
         }
 
-        public StatusMessages Create(PostTeam _newTeam, [FromServices] PSDBContext _dbContext)
+        public (StatusMessages, DTO.Team.Team) Create(PostTeam _newTeam, [FromServices] PSDBContext _dbContext)
         {
             try
             {
+				DTO.Team.Team syncTeam = new DTO.Team.Team();
 				DomainModel.Team newTeam = new DomainModel.Team();
                 newTeam.id = Guid.NewGuid();
                 newTeam.name = _newTeam.name;
@@ -87,28 +88,51 @@ namespace AppServices
                 newTeam.updatedate = DateTime.Now;
                 newTeam.createdate = DateTime.Now;
 
+				syncTeam.id = newTeam.id;
+				syncTeam.name = newTeam.name;
+				syncTeam.clientid = newTeam.client.id;
+				syncTeam.clientname = newTeam.client.name;
+				syncTeam.createdate = newTeam.createdate;
+				syncTeam.updatedate = newTeam.updatedate;
+
+
                 _dbContext.Teams.Add(newTeam);
                 _dbContext.SaveChanges();
-                return StatusMessages.AddNewTeam;
+                return (StatusMessages.AddNewTeam,syncTeam);
             }
             catch
             {
-                return StatusMessages.FailedToAddTeam;
+                return (StatusMessages.FailedToAddTeam,null);
             }
 
         }
     
-        public StatusMessages Update(PostTeamUpdate update, [FromServices] PSDBContext _dbContext)
+        public (StatusMessages,DTO.Team.Team) Update(PostTeamUpdate update, [FromServices] PSDBContext _dbContext)
         {
-			DomainModel.Team team = _dbContext.Teams.Include(t => t.users).FirstOrDefault(t => t.id == update.Id);
+			DTO.Team.Team syncTeam = new DTO.Team.Team();
+			DomainModel.Team team = null;
+			try
+			{
+				team = _dbContext.Teams.Include(t => t.users).AsSplitQuery()
+													.Include(t => t.client).FirstOrDefault(t => t.id == update.Id);
+			}
+			catch
+			{
+				return (StatusMessages.UnableToService, null);
+			}
             if(team == null)
             {
-				return StatusMessages.TeamNotexist;
+				return (StatusMessages.TeamNotexist,null);
 			}
             
 			if (update.userIds.Count > 0)
 			{
 				team.name = update.name;
+				syncTeam.name = team.name;
+				syncTeam.clientname = team.client.name;
+				syncTeam.clientid = team.client.id;
+				syncTeam.id = team.id;
+
 				team.users.RemoveAll(u => true);
 				foreach (Guid id in update.userIds)
 				{
@@ -124,9 +148,19 @@ namespace AppServices
 				team.users.RemoveAll(u => true);
 			}
 			team.updatedate = DateTime.Now;
-			_dbContext.Teams.Update(team);
-			_dbContext.SaveChanges();
-			return StatusMessages.UpdateTeam;
+			syncTeam.updatedate = team.updatedate;
+			syncTeam.createdate = team.createdate;
+
+			try
+			{
+				_dbContext.Teams.Update(team);
+				_dbContext.SaveChanges();
+				return (StatusMessages.UpdateTeam, syncTeam);
+			}
+			catch
+			{
+				return (StatusMessages.UnableToService, null);
+			}
 		}
 
 		//Get Team do update

@@ -1,5 +1,4 @@
 ﻿using DTO.Credential;
-using DTO;
 using DomainModel;
 using DataAccessLayerDB;
 using Microsoft.EntityFrameworkCore;
@@ -10,9 +9,9 @@ using EncryptionLayer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using LogginMessages;
-using System.Collections.Immutable;
 using DTO.Personal;
-using Org.BouncyCastle.Asn1.X509;
+using Microsoft.AspNetCore.SignalR;
+using Newtonsoft.Json;
 
 namespace AppServices
 {
@@ -233,9 +232,10 @@ namespace AppServices
 			});
 		}
 		
-		public StatusMessages CreateCredential(Guid userid,PostCredential postCredential, PSDBContext _dbContext, SymmetricEncryption symmetricEncryption, IConfiguration configuration, ILogger _logger)
+		public (StatusMessages, List<DTO.Credential.Credential>) CreateCredential(Guid userid,PostCredential postCredential, PSDBContext _dbContext, SymmetricEncryption symmetricEncryption, IConfiguration configuration, ILogger _logger)
         {
 			User user = null;
+			List<DTO.Credential.Credential> syncCredentials = new List<DTO.Credential.Credential>();
 			try
 			{
 				user = _dbContext.Users.Include(u => u.teams)
@@ -245,21 +245,22 @@ namespace AppServices
 			}
 			catch 
 			{
-				return StatusMessages.UnableToService;
+				return (StatusMessages.UnableToService,null);
 			}
 			if(user == null)
 			{
-				return StatusMessages.UnauthorizedAccess;
+				return (StatusMessages.UnauthorizedAccess,null);
 			}
 
 			List<Team> teams= user.teams.Where(t => postCredential.teams.Any(team => team.teamid == t.id && team.clientid == t.client.id)).ToList();
 			if (teams == null)
 			{
-				return StatusMessages.TeamNotexist;
+				return (StatusMessages.TeamNotexist, null);
 			}
 			teams.ForEach(t =>
 			{
 				DomainModel.Credential newCredential = new DomainModel.Credential();
+				DTO.Credential.Credential syncCredential = new DTO.Credential.Credential();
 				SymmetricKey key = symmetricEncryption.EncryptString(postCredential.password, configuration);
 
 				newCredential.id = Guid.NewGuid();
@@ -272,9 +273,21 @@ namespace AppServices
 				newCredential.createdate = DateTime.Now;
 				newCredential.updatedate = DateTime.Now;
 
+				syncCredential.id = newCredential.id;
+				syncCredential.domain = newCredential.domain;
+				syncCredential.username = newCredential.username;
+				syncCredential.email = newCredential.email;
+				syncCredential.remote = newCredential.remote;
+				syncCredential.note = newCredential.note;
+				syncCredential.teamid = t.id;
+				syncCredential.teamname = t.name;
+				syncCredential.clientid = t.client.id;
+				syncCredential.password = "";
+
 				_dbContext.Passwords.Add(newCredential.password);
 				_dbContext.Credentials.Add(newCredential);
 
+				syncCredentials.Add(syncCredential);
 				if (t.credentials != null)
 				{
 					t.credentials.Add(newCredential);
@@ -291,11 +304,12 @@ namespace AppServices
 			try
 			{
 				_dbContext.SaveChanges();
-				return StatusMessages.AddNewCredential;
+				return (StatusMessages.AddNewCredential,syncCredentials);
 			}
-			catch
+			catch (Exception ex) 
 			{
-				return StatusMessages.UnableToService;
+				_logger.LogCritical(ex.Message);
+				return (StatusMessages.UnableToService,null);
 			}
 			
 
@@ -306,26 +320,28 @@ namespace AppServices
 			User user = _dbContext.Users.Include(u => u.folders)
 										.Include(u => u.folders).ThenInclude(pf => pf.credentials)
 										.FirstOrDefault(u => u.Id == userid.ToString());
-
+			DomainModel.Credential newPersonalCredential = new DomainModel.Credential();
 			if (user == null)
 			{
 				return StatusMessages.UnauthorizedAccess;
 			}
 
 			DomainModel.PersonalFolder personalFolder = user.folders.FirstOrDefault(pf => pf.id == postPersonalCredential.personalFolderId);
+
+			newPersonalCredential.domain = postPersonalCredential.domain;
+			newPersonalCredential.username = postPersonalCredential.username;
+
+			SymmetricKey key = _symmetricEncryption.EncryptString(postPersonalCredential.password, _configuration);
+
+			newPersonalCredential.password = new Password() { password = key.password, aad = key.aad, id = Guid.NewGuid(), createdate = DateTime.Now, updatedate = DateTime.Now };
+			newPersonalCredential.remote = postPersonalCredential.remote;
+			newPersonalCredential.email = postPersonalCredential.email;
+			newPersonalCredential.note = postPersonalCredential.note;
+			newPersonalCredential.createdate = DateTime.Now;
+			newPersonalCredential.updatedate = DateTime.Now;
+
 			if (personalFolder != null)
 			{
-				DomainModel.Credential newPersonalCredential = new DomainModel.Credential();
-				newPersonalCredential.domain = postPersonalCredential.domain;
-				newPersonalCredential.username = postPersonalCredential.username;
-
-				SymmetricKey key = _symmetricEncryption.EncryptString(postPersonalCredential.password, _configuration);
-
-				newPersonalCredential.password = new Password() { password = key.password, aad = key.aad, id = Guid.NewGuid(), createdate = DateTime.Now, updatedate = DateTime.Now };
-				newPersonalCredential.remote = postPersonalCredential.remote;
-				newPersonalCredential.email = postPersonalCredential.email;
-				newPersonalCredential.note = postPersonalCredential.note;
-
 
 				if (personalFolder.credentials != null)
 				{
@@ -352,18 +368,6 @@ namespace AppServices
 			}
 			else
 			{
-				DomainModel.Credential newPersonalCredential = new DomainModel.Credential();
-				newPersonalCredential.domain = postPersonalCredential.domain;
-				newPersonalCredential.username = postPersonalCredential.username;
-
-				SymmetricKey key = _symmetricEncryption.EncryptString(postPersonalCredential.password, _configuration);
-
-				newPersonalCredential.password = new Password() { password = key.password, aad = key.aad, id = Guid.NewGuid(), createdate = DateTime.Now, updatedate = DateTime.Now };
-
-				newPersonalCredential.remote = postPersonalCredential.remote;
-				newPersonalCredential.email = postPersonalCredential.email;
-				newPersonalCredential.note = postPersonalCredential.note;
-
 				_dbContext.Passwords.Add(newPersonalCredential.password);
 				_dbContext.Credentials.Add(newPersonalCredential);
 				if (user.credentials != null)
@@ -558,9 +562,10 @@ namespace AppServices
             }
         }
     
-        public StatusMessages Update(PSDBContext _dbContext,Guid userid, PostUpdateCredential update, IConfiguration _configuration, SymmetricEncryption _symmetricEncryption)
+        public (StatusMessages, DTO.Credential.Credential) Update(PSDBContext _dbContext,Guid userid, PostUpdateCredential update, IConfiguration _configuration, SymmetricEncryption _symmetricEncryption)
         {
 			DomainModel.User user = null;
+			DTO.Credential.Credential syncCredential = new DTO.Credential.Credential();
 			try
 			{
 				user = _dbContext.Users.Include(u => u.teams)
@@ -570,24 +575,24 @@ namespace AppServices
 			}
 			catch
 			{
-				return StatusMessages.UnableToService;
+				return (StatusMessages.UnableToService,null);
 			}
 
 			if (user == null)
 			{
-				return StatusMessages.UnauthorizedAccess;
+				return (StatusMessages.UnauthorizedAccess,null);
 			}
 
 			DomainModel.Team team = user.teams.FirstOrDefault(t => t.id == update.teamid);
 			if (team == null)
 			{
-				return StatusMessages.AccessDenied;
+				return (StatusMessages.AccessDenied,null);
 			}
 
 			DomainModel.Credential credential = team.credentials.FirstOrDefault(c => c.id == update.id);
 			if (credential == null)
 			{
-				return StatusMessages.CredentialNotexist;
+				return (StatusMessages.CredentialNotexist,null);
 			}
 
 			if (string.IsNullOrEmpty(update.password) || string.IsNullOrWhiteSpace(update.password))
@@ -601,15 +606,24 @@ namespace AppServices
 				credential.remote = update.remote;
 				credential.updatedate = DateTime.Now;
 
+				syncCredential.id = credential.id;
+				syncCredential.domain = update.domain;
+				syncCredential.username = update.username;
+				syncCredential.email = update.email;
+				syncCredential.remote = update.remote;
+				syncCredential.note = update.note;
+				syncCredential.teamid = team.id;
+
+
 				try
 				{
 					_dbContext.Credentials.Update(credential);
 					_dbContext.SaveChanges(true);
-					return StatusMessages.UpdateCredential;
+					return (StatusMessages.UpdateCredential, syncCredential);
 				}
 				catch
 				{
-					return StatusMessages.UnableToService;
+					return (StatusMessages.UnableToService,null);
 				}
 			}
             else
@@ -628,30 +642,39 @@ namespace AppServices
 				credential.password.password = key.password;
 				credential.updatedate = DateTime.Now;
 
+				syncCredential.id = credential.id;
+				syncCredential.domain = update.domain;
+				syncCredential.username = update.username;
+				syncCredential.email = update.email;
+				syncCredential.remote = update.remote;
+				syncCredential.note = update.note;
+				syncCredential.teamid = team.id;
+
 				try
 				{
 					_dbContext.Passwords.Update(credential.password);
 					_dbContext.Credentials.Update(credential);
 					_dbContext.SaveChanges();
-					return StatusMessages.UpdateCredential;
+					return (StatusMessages.UpdateCredential,syncCredential);
 				}
 				catch
 				{
-					return StatusMessages.UnableToService;
+					return (StatusMessages.UnableToService,null);
 				}
 			}
 		}
     
-        public StatusMessages UpdatePersonalCredential(PSDBContext _dbContext, PostUpdatePersonalCredential update, IConfiguration _configuration, SymmetricEncryption _symmetricEncryption, Guid _userid)
+        public (StatusMessages,PersonalCredential) UpdatePersonalCredential(PSDBContext _dbContext, PostUpdatePersonalCredential update, IConfiguration _configuration, SymmetricEncryption _symmetricEncryption, Guid _userid)
         {
             Guid.TryParse(update.personalfolderid, out Guid _personalfolderid);
             Guid.TryParse(update.originalpersonalfolderid, out Guid _originalpersonalfolderid);
-
-            if(_originalpersonalfolderid == Guid.Empty)
+			DTO.Credential.PersonalCredential syncUpdateCredential = new DTO.Credential.PersonalCredential();
+			if (_originalpersonalfolderid == Guid.Empty)
             {
                 if(_personalfolderid == Guid.Empty) 
                 {
 					DomainModel.Credential credential = new DomainModel.Credential();
+					
 					User user = new User();
 
 					try
@@ -662,26 +685,38 @@ namespace AppServices
 					}
 					catch
 					{
-						return StatusMessages.UnableToService;
+						return (StatusMessages.UnableToService,null);
 					}
 
 					if(user == null)
 					{
-						return StatusMessages.UnauthorizedAccess;
+						return (StatusMessages.UnauthorizedAccess,null);
 					}
 					credential = user.credentials.FirstOrDefault(c => c.id == update.id);
 					if(credential == null)
 					{
-						return StatusMessages.CredentialNotexist;
+						return (StatusMessages.CredentialNotexist,null);
 					}
+
+					user.credentials.Remove(credential);
+
+					credential.domain = update.domain;
+					credential.username = update.username;
+					credential.email = update.email;
+					credential.remote = update.remote;
+					credential.note = update.note;
+					credential.updatedate = DateTime.Now;
+
+					syncUpdateCredential.domain = credential.domain;
+					syncUpdateCredential.username = credential.username;
+					syncUpdateCredential.email = credential.email;
+					syncUpdateCredential.remote = credential.remote;
+					syncUpdateCredential.note = credential.note;
+					syncUpdateCredential.id = update.id;
+					syncUpdateCredential.personalfolderid = null;
 
 					if (!string.IsNullOrEmpty(update.password) || !string.IsNullOrWhiteSpace(update.password))
                     {
-						credential.domain = update.domain;
-						credential.username = update.username;
-						credential.email = update.email;
-						credential.remote = update.remote;
-						credential.note = update.note;
 
                         SymmetricKey key = _symmetricEncryption.EncryptString(update.password, _configuration);
 
@@ -689,7 +724,7 @@ namespace AppServices
                         credential.password.aad = key.aad;
                         credential.password.updatedate = DateTime.Now;
 
-						user.credentials.Remove(credential);
+						user.credentials.Add(credential);
 
 						try
 						{
@@ -697,35 +732,29 @@ namespace AppServices
 							_dbContext.Passwords.Update(credential.password);
 							_dbContext.Credentials.Update(credential);
 							_dbContext.SaveChanges();
-							return StatusMessages.UpdateCredential;
+							return (StatusMessages.UpdateCredential,syncUpdateCredential);
 						}
 						catch
 						{
-							return StatusMessages.UnableToService;
+							return (StatusMessages.UnableToService,null);
 						}
 
 					}
                     else
                     {
 
-						credential.domain = update.domain;
-						credential.username = update.username;
-						credential.email = update.email;
-						credential.remote = update.remote;
-						credential.note = update.note;
-
-						user.credentials.Remove(credential);
+						user.credentials.Add(credential);
 
 						try
 						{
 							_dbContext.Users.Update(user);
 							_dbContext.Credentials.Update(credential);
 							_dbContext.SaveChanges();
-							return StatusMessages.UpdateCredential;
+							return (StatusMessages.UpdateCredential,syncUpdateCredential);
 						}
 						catch
 						{
-							return StatusMessages.UnableToService;
+							return (StatusMessages.UnableToService,null);
 						}
 					}
                 }
@@ -746,7 +775,7 @@ namespace AppServices
 					}
 					catch
 					{
-						return StatusMessages.UnableToService;
+						return (StatusMessages.UnableToService,null);
 					}
 
 					personalFolder = user.folders.FirstOrDefault(pf => pf.id == _personalfolderid);
@@ -754,28 +783,46 @@ namespace AppServices
 
 					if (user == null)
 					{
-						return StatusMessages.UnauthorizedAccess;
+						return (StatusMessages.UnauthorizedAccess,null);
 					}
 					
 					if(personalFolder == null)
 					{
-						return StatusMessages.PersonalFolderNotexist;
+						return (StatusMessages.PersonalFolderNotexist,null);
 					}
 
 					if(credential == null)
 					{
-						return StatusMessages.CredentialNotexist;
+						return (StatusMessages.CredentialNotexist,null);
+					}
+
+					user.credentials.Remove(credential);
+
+					credential.domain = update.domain;
+					credential.username = update.username;
+					credential.email = update.email;
+					credential.remote = update.remote;
+					credential.note = update.note;
+					credential.updatedate = DateTime.Now;
+
+					syncUpdateCredential.domain = credential.domain;
+					syncUpdateCredential.username = credential.username;
+					syncUpdateCredential.email = credential.email;
+					syncUpdateCredential.remote = credential.remote;
+					syncUpdateCredential.note = credential.note;
+					syncUpdateCredential.id = update.id;
+					try
+					{
+						syncUpdateCredential.personalfolderid = Guid.Parse(update.personalfolderid);
+					}
+					catch
+					{
+						return (StatusMessages.InvalidValue, null);
 					}
 
 					if (!string.IsNullOrEmpty(update.password) || !string.IsNullOrWhiteSpace(update.password))
 					{
 
-
-						credential.domain = update.domain;
-						credential.username = update.username;
-						credential.email = update.email;
-						credential.remote = update.remote;
-						credential.note = update.note;
 
 						SymmetricKey key = _symmetricEncryption.EncryptString(update.password, _configuration);
 
@@ -792,9 +839,6 @@ namespace AppServices
 							personalFolder.credentials.Add(credential);
 						}
                         
-
-						user.credentials.Remove(credential);
-
 						try
 						{
 							_dbContext.Users.Update(user);
@@ -802,22 +846,16 @@ namespace AppServices
 							_dbContext.Passwords.Update(credential.password);
 							_dbContext.Credentials.Update(credential);
 							_dbContext.SaveChanges();
-							return StatusMessages.UpdateCredential;
+							return (StatusMessages.UpdateCredential, syncUpdateCredential);
 						}
 						catch
 						{
-							return StatusMessages.UnableToService;
+							return (StatusMessages.UnableToService,null);
 						}
 
 					}
 					else
 					{
-
-						credential.domain = update.domain;
-						credential.username = update.username;
-						credential.email = update.email;
-						credential.remote = update.remote;
-						credential.note = update.note;
 
 						if (personalFolder.credentials == null)
 						{
@@ -828,7 +866,6 @@ namespace AppServices
 							personalFolder.credentials.Add(credential);
 						}
 
-						user.credentials.Remove(credential);
 
 						try
 						{
@@ -836,11 +873,11 @@ namespace AppServices
 							_dbContext.PersonalFolders.Update(personalFolder);
 							_dbContext.Credentials.Update(credential);
 							_dbContext.SaveChanges();
-							return StatusMessages.UpdateCredential;
+							return (StatusMessages.UpdateCredential,syncUpdateCredential);
 						}
 						catch
 						{
-							return StatusMessages.UnableToService;
+							return (StatusMessages.UnableToService,null);
 						}
 					}
 				}
@@ -864,26 +901,36 @@ namespace AppServices
 
 					if(user == null)
 					{
-						return StatusMessages.UnauthorizedAccess;
+						return (StatusMessages.UnauthorizedAccess,null);
 					}
 					if(originalPersonalFolder == null)
 					{
-						return StatusMessages.PersonalFolderNotexist;
+						return (StatusMessages.PersonalFolderNotexist,null);
 					}
 					if(credential == null)
 					{
-						return StatusMessages.CredentialNotexist;
+						return (StatusMessages.CredentialNotexist,null);
 					}
+
+					originalPersonalFolder.credentials.Remove(credential);
+
+					credential.domain = update.domain;
+					credential.username = update.username;
+					credential.email = update.email;
+					credential.remote = update.remote;
+					credential.note = update.note;
+					credential.updatedate = DateTime.Now;
+
+					syncUpdateCredential.domain = credential.domain;
+					syncUpdateCredential.username = credential.username;
+					syncUpdateCredential.email = credential.email;
+					syncUpdateCredential.remote = credential.remote;
+					syncUpdateCredential.note = credential.note;
+					syncUpdateCredential.id = update.id;
+
 
 					if (!string.IsNullOrEmpty(update.password) || !string.IsNullOrWhiteSpace(update.password))
 					{
-
-
-						credential.domain = update.domain;
-						credential.username = update.username;
-						credential.email = update.email;
-						credential.remote = update.remote;
-						credential.note = update.note;
 
 						SymmetricKey key = _symmetricEncryption.EncryptString(update.password, _configuration);
 
@@ -891,7 +938,6 @@ namespace AppServices
 						credential.password.aad = key.aad;
 						credential.password.updatedate = DateTime.Now;
 
-						originalPersonalFolder.credentials.Remove(credential);
 
 						if (user.credentials == null)
 						{
@@ -908,19 +954,11 @@ namespace AppServices
 						_dbContext.Passwords.Update(credential.password);
 						_dbContext.Credentials.Update(credential);
 						_dbContext.SaveChanges();
-						return StatusMessages.UpdateCredential;
+						return (StatusMessages.UpdateCredential, syncUpdateCredential);
 
 					}
 					else
 					{
-
-						credential.domain = update.domain;
-						credential.username = update.username;
-						credential.email = update.email;
-						credential.remote = update.remote;
-						credential.note = update.note;
-
-						originalPersonalFolder.credentials.Remove(credential);
 
 						if (user.credentials == null)
 						{
@@ -936,7 +974,7 @@ namespace AppServices
 						_dbContext.PersonalFolders.Update(originalPersonalFolder);
 						_dbContext.Credentials.Update(credential);
 						_dbContext.SaveChanges();
-						return StatusMessages.UpdateCredential;
+						return (StatusMessages.UpdateCredential, syncUpdateCredential);
 					}
 				}
 				else
@@ -955,7 +993,7 @@ namespace AppServices
 					}
 					catch
 					{
-						return StatusMessages.UnableToService;
+						return (StatusMessages.UnableToService,null);
 					}
 
 					originalPersonalFolder = user.folders.FirstOrDefault(pf => pf.id == _originalpersonalfolderid);
@@ -964,26 +1002,43 @@ namespace AppServices
 
 					if(user == null)
 					{
-						return StatusMessages.UnauthorizedAccess;
+						return (StatusMessages.UnauthorizedAccess,null);
 					}
 					if(originalPersonalFolder == null || personalFolder == null)
 					{
-						return StatusMessages.PersonalFolderNotexist;
+						return (StatusMessages.PersonalFolderNotexist,null);
 					}
 					if(credential == null)
 					{
-						return StatusMessages.CredentialNotexist;
+						return (StatusMessages.CredentialNotexist,null);
+					}
+
+					originalPersonalFolder.credentials.Remove(credential);
+
+					credential.domain = update.domain;
+					credential.username = update.username;
+					credential.email = update.email;
+					credential.remote = update.remote;
+					credential.note = update.note;
+					credential.updatedate = DateTime.Now;
+
+					syncUpdateCredential.domain = credential.domain;
+					syncUpdateCredential.username = credential.username;
+					syncUpdateCredential.email = credential.email;
+					syncUpdateCredential.remote = credential.remote;
+					syncUpdateCredential.note = credential.note;
+					syncUpdateCredential.id = update.id;
+					try
+					{
+						syncUpdateCredential.personalfolderid = Guid.Parse(update.personalfolderid);
+					}
+					catch
+					{
+						return (StatusMessages.InvalidValue, null);
 					}
 
 					if (!string.IsNullOrEmpty(update.password) || !string.IsNullOrWhiteSpace(update.password))
 					{
-
-
-						credential.domain = update.domain;
-						credential.username = update.username;
-						credential.email = update.email;
-						credential.remote = update.remote;
-						credential.note = update.note;
 
 						SymmetricKey key = _symmetricEncryption.EncryptString(update.password, _configuration);
 
@@ -993,34 +1048,24 @@ namespace AppServices
 
 						personalFolder.credentials.Add(credential);
 
-						originalPersonalFolder.credentials.Remove(credential);
 
 						_dbContext.PersonalFolders.Update(originalPersonalFolder);
 						_dbContext.PersonalFolders.Update(personalFolder);
 						_dbContext.Passwords.Update(credential.password);
 						_dbContext.Credentials.Update(credential);
 						_dbContext.SaveChanges();
-						return StatusMessages.UpdateCredential;
+						return (StatusMessages.UpdateCredential, syncUpdateCredential);
 
 					}
 					else
 					{
-
-						credential.domain = update.domain;
-						credential.username = update.username;
-						credential.email = update.email;
-						credential.remote = update.remote;
-						credential.note = update.note;
-
 						personalFolder.credentials.Add(credential);
-
-						originalPersonalFolder.credentials.Remove(credential);
 
 						_dbContext.PersonalFolders.Update(originalPersonalFolder);
 						_dbContext.PersonalFolders.Update(personalFolder);
 						_dbContext.Credentials.Update(credential);
 						_dbContext.SaveChanges();
-						return StatusMessages.UpdateCredential;
+						return (StatusMessages.UpdateCredential, syncUpdateCredential);
 					}
 				}
 			}

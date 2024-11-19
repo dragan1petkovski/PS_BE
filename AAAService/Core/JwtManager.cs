@@ -106,6 +106,7 @@ namespace AAAService.Core
 		{
 			if (Guid.TryParse(GetJWTPayload(jwt)[ClaimTypes.NameIdentifier].ToString(), out Guid _userid))
 			{
+				
 				userid = _userid;
 				return true;
 			}
@@ -117,7 +118,7 @@ namespace AAAService.Core
 
 		}
 
-		public (bool userIdSuccess, Guid _userid) GetUserID(string jwt)
+		public (bool, Guid) GetUserID(string jwt)
 		{
 			try
 			{

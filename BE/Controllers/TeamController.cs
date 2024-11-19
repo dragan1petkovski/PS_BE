@@ -13,8 +13,11 @@ using AAAService.Core;
 using AAAService.Validators;
 using LogginMessages;
 using Org.BouncyCastle.Ocsp;
+using Newtonsoft.Json;
+using SignalR;
+using Microsoft.AspNetCore.SignalR;
 
-namespace be.Controllers
+namespace BE.Controllers
 {
     [ApiController]
 	[ResponseCache(NoStore = true)]
@@ -26,8 +29,9 @@ namespace be.Controllers
         private readonly UserManager<DomainModel.User> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly JwtManager _jwtManager;
+		private readonly IHubContext<DataSync> _hubContext;
 
-        public TeamController(PSDBContext dbContext, TeamService teamService, TeamDataMapper teamDataMapper, JwtManager jwtManager, UserManager<DomainModel.User> userManager, RoleManager<IdentityRole> roleManager)
+        public TeamController(PSDBContext dbContext, TeamService teamService, TeamDataMapper teamDataMapper, JwtManager jwtManager, UserManager<DomainModel.User> userManager, RoleManager<IdentityRole> roleManager, IHubContext<DataSync> hubContext)
         {
             _dbContext = dbContext;
 			_service = teamService;
@@ -35,6 +39,7 @@ namespace be.Controllers
             _jwtManager = jwtManager;
             _userManager = userManager;
             _roleManager = roleManager;
+			_hubContext = hubContext;
 
         }
 
@@ -110,7 +115,11 @@ namespace be.Controllers
 			{
 				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
 			}
-			StatusMessages status = _service.Create(_newTeam,_dbContext);
+			(StatusMessages status, DTO.Team.Team data) = _service.Create(_newTeam,_dbContext);
+			if(StatusMessages.AddNewTeam == status)
+			{
+				_hubContext.Clients.Group("team").SendAsync("AdminNotification", JsonConvert.SerializeObject(new { status = "new", type = "team", data = data }));
+			}
 			return StatusCode(status, status);
 
 		}
@@ -126,7 +135,11 @@ namespace be.Controllers
 			{
 				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
 			}
-            StatusMessages status = _service.Update(update, _dbContext);
+            (StatusMessages status, DTO.Team.Team data)  = _service.Update(update, _dbContext);
+			if(StatusMessages.UpdateTeam == status)
+			{
+				_hubContext.Clients.Group("team").SendAsync("AdminNotification", JsonConvert.SerializeObject(new { status = "update", type = "team", data = data }));
+			}
 			return StatusCode(status, status);
 
 		}
@@ -151,6 +164,10 @@ namespace be.Controllers
 			_dbContext.deleteVerifications.Remove(deleteVerification);
 			_dbContext.SaveChanges();
 			StatusMessages status = _service.Delete(itemid, _certificateService, _dbContext, _configuration);
+			if(status == StatusMessages.DeleteTeam)
+			{
+				_hubContext.Clients.Group("team").SendAsync("AdminNotification", JsonConvert.SerializeObject(new { status = "delete", type = "team", data = itemid }));
+			}
 			return StatusCode(status, status);
         }
     }

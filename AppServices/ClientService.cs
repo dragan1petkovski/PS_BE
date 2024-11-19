@@ -84,23 +84,29 @@ namespace AppServices
             return (StatusMessages.Ok,dataMapper.ConvertClientListToClientDTOListForUsers(clients));
         }
 
-        public StatusMessages Create(PSDBContext _dbContext,PostClient postClient)
+        public (StatusMessages,ClientForAdmins) Create(PSDBContext _dbContext,PostClient postClient)
         {
             try
             {
-                _dbContext.Clients.Add(new Client()
+                Client newClient = new Client()
                 {
                     id = Guid.NewGuid(),
                     name = postClient.name,
                     createdate = DateTime.Now,
                     updatedate = DateTime.Now,
-                });
-                _dbContext.SaveChanges();
-                return StatusMessages.AddNewClient;
+                };
+                _dbContext.Clients.Add(newClient);
+				_dbContext.SaveChanges();
+                ClientForAdmins output = new ClientForAdmins();
+                output.id = newClient.id;
+                output.name = newClient.name;
+                output.createdate = DateTime.Now;
+
+                return (StatusMessages.AddNewClient,output);
             }
             catch
             {
-                return StatusMessages.UnableToService;
+                return (StatusMessages.UnableToService,null);
             }
 
         }

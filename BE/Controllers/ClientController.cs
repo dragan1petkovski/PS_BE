@@ -11,8 +11,11 @@ using DTO;
 using AAAService.Core;
 using AAAService.Validators;
 using LogginMessages;
+using Microsoft.AspNetCore.SignalR;
+using SignalR;
+using Newtonsoft.Json;
 
-namespace be.Controllers
+namespace BE.Controllers
 {
     [ApiController]
     [ResponseCache(NoStore = true)]
@@ -25,7 +28,8 @@ namespace be.Controllers
         private readonly RoleManager<IdentityRole> _roleManager;
 		private readonly JwtManager _jwtManager;
 		private readonly ILogger<ClientService> _logger;
-		public ClientController(PSDBContext configuration, ClientService clientService, ClientDataMapper clientDataMapper, UserManager<User> userManager, RoleManager<IdentityRole> roleManager, [FromServices] JwtManager jwtManager, ILogger<ClientService> logger)
+		private readonly IHubContext<DataSync> _hubContext;
+		public ClientController(PSDBContext configuration, ClientService clientService, ClientDataMapper clientDataMapper, UserManager<User> userManager, RoleManager<IdentityRole> roleManager, [FromServices] JwtManager jwtManager, ILogger<ClientService> logger, IHubContext<DataSync> hubContext)
         {
             _dbContext = configuration;
             _service = clientService;
@@ -34,6 +38,7 @@ namespace be.Controllers
             _roleManager = roleManager;
             _jwtManager = jwtManager;
 			_logger = logger;
+			_hubContext = hubContext;
         }
 
         [Authorize(Roles = "User")]
@@ -133,7 +138,11 @@ namespace be.Controllers
 			{
 				return StatusCode(403, StatusMessages.AccessDenied);
 			}
-			StatusMessages status = _service.Create(_dbContext, postClient);
+			(StatusMessages status,DTO.Client.ClientForAdmins output) = _service.Create(_dbContext, postClient);
+			if(status == StatusMessages.AddNewClient)
+			{
+				_hubContext.Clients.Group("client").SendAsync("AdminNotification", JsonConvert.SerializeObject(new {status="new",type="client",data=output}));
+			}
 			return StatusCode(status,status);
         }
 
@@ -148,6 +157,10 @@ namespace be.Controllers
 				return StatusCode(403,StatusMessages.AccessDenied);
 			}
 			StatusMessages status = _service.Update(update, _dbContext);
+			if(StatusMessages.UpdateClient == status)
+			{
+				_hubContext.Clients.Group("client").SendAsync("AdminNotification",JsonConvert.SerializeObject(new {status="update", type="client",data=update}));
+			}
 			return StatusCode(status, status);
 		}
 
@@ -171,6 +184,10 @@ namespace be.Controllers
 			_dbContext.deleteVerifications.Remove(deleteVerification);
 			_dbContext.SaveChanges();
 			StatusMessages status = _service.Delete(itemid, _teamService, _certificateService, _dbContext, _configuration);
+			if(StatusMessages.DeleteClient == status)
+			{
+				_hubContext.Clients.Group("client").SendAsync("AdminNotification", JsonConvert.SerializeObject(new {status="delete",type="client",data=itemid}));
+			}
 			_logger.LogError(status);
 			return StatusCode(status, status);
 		}

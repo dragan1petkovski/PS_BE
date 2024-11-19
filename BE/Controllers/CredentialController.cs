@@ -8,17 +8,17 @@ using System.Text.Json;
 using DomainModel;
 using EncryptionLayer;
 using Microsoft.AspNetCore.Authorization;
-using DTO;
-using Microsoft.EntityFrameworkCore;
 using LogginMessages;
 using AAAService.Core;
 using AAAService.Validators;
-using System.Diagnostics.Eventing.Reader;
 using DTO.Personal;
+using Microsoft.AspNetCore.SignalR;
+using SignalR;
+using Newtonsoft.Json;
 using DTO.Team;
 
 
-namespace be.Controllers
+namespace BE.Controllers
 {
     [ApiController]
     [Authorize(Roles = "User")]
@@ -32,7 +32,8 @@ namespace be.Controllers
         private readonly UserManager<User> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ILogger<CredentialService> _logger;
-        public CredentialController(PSDBContext dbContext, CredentialService credentialService, JwtManager jwtTokenManager, UserManager<User> userManager, RoleManager<IdentityRole> roleManager, ILogger<CredentialService> logger)
+		private readonly IHubContext<DataSync> _hubContext;
+		public CredentialController(PSDBContext dbContext, CredentialService credentialService, JwtManager jwtTokenManager, UserManager<User> userManager, RoleManager<IdentityRole> roleManager, ILogger<CredentialService> logger, IHubContext<DataSync> hubContext)
         {
             _dbContext = dbContext;
             _credentialService = credentialService;
@@ -40,6 +41,7 @@ namespace be.Controllers
             _roleManager = roleManager;
             _userManager = userManager;
             _logger = logger;
+			_hubContext = hubContext;
         }
 
 
@@ -137,11 +139,19 @@ namespace be.Controllers
 				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
 			}
 			(bool _, Guid _userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
-			StatusMessages status = _credentialService.CreateCredential(_userid,credential, _dbContext, symmetricEncryption, configuration, _logger);
+			(StatusMessages status, List<DTO.Credential.Credential> data) = _credentialService.CreateCredential(_userid, credential, _dbContext, symmetricEncryption, configuration, _logger);
+			if(StatusMessages.AddNewCredential == status)
+			{
+				foreach(var i in data)
+				{
+					_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = i.teamid, type = "credential" }))
+										.SendAsync("Notification",JsonConvert.SerializeObject(new { status = "new", type = "credential", data = i }));
+				}
+				
+			}
 			return StatusCode(status, status);
 
 		}
-
 
 		[HttpPost("api/[controller]/personal")]
 		public async Task<IActionResult> AddPersonalCredential(PostPersonalCredential postPersonalCredential, [FromServices] SymmetricEncryption _symmetricEncryption, [FromServices] IConfiguration _configuration, [FromServices] Validation _validation)
@@ -156,7 +166,6 @@ namespace be.Controllers
 			return StatusCode(status, status);
 		}
 
-
 		[HttpDelete("api/[controller]/{id:guid}/{teamid:guid}")]
 		public async Task<IActionResult> Delete( Guid id,Guid teamid, [FromServices] Validation validation)
         {
@@ -166,7 +175,13 @@ namespace be.Controllers
 				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
 			}
             (bool _, Guid _userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
+
 			StatusMessages status = _credentialService.DeleteCredential(id, teamid, _userid, _dbContext, _logger);
+			if(StatusMessages.DeleteCredential == status)
+			{
+				_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = teamid, type = "credential" }))
+									.SendAsync("Notification", JsonConvert.SerializeObject(new { status = "delete", type = "credential", data = id }));
+			}
 			return StatusCode(status, status);
 		}
 
@@ -180,9 +195,13 @@ namespace be.Controllers
 			}
             (bool _, Guid _userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
 			StatusMessages status = _credentialService.DeletePersonalCredential(id, personalFolderId.HasValue?personalFolderId.Value:Guid.Empty, _userid, _dbContext, _logger);
+			if (StatusMessages.DeleteCredential == status)
+			{
+				_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = personalFolderId.HasValue?personalFolderId.Value:id, type = "personal" }))
+									.SendAsync("Notification", JsonConvert.SerializeObject(new { status = "delete", type = "personal", data = id }));
+			}
 			return StatusCode(status, status);
 		}
-
 
         [HttpPut("api/[controller]")]
         public async Task<IActionResult> Update(PostUpdateCredential update, [FromServices] IConfiguration _configuration, [FromServices] SymmetricEncryption _symmetricEncryption, [FromServices] Validation validation)
@@ -193,7 +212,12 @@ namespace be.Controllers
 				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
 			}
 			(bool _, Guid _userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
-			StatusMessages status = _credentialService.Update(_dbContext, _userid, update, _configuration, _symmetricEncryption);
+			(StatusMessages status, DTO.Credential.Credential cred) = _credentialService.Update(_dbContext, _userid, update, _configuration, _symmetricEncryption);
+			if(StatusMessages.UpdateCredential == status)
+			{
+				_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = cred.teamid, type = "credential" }))
+									.SendAsync("Notification", JsonConvert.SerializeObject(new { status = "update", type = "credential", data = cred }));
+			}
 			return StatusCode(status, status);
 		}
 
@@ -206,7 +230,42 @@ namespace be.Controllers
 				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
 			}
             (bool _, Guid _userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
-			StatusMessages status = _credentialService.UpdatePersonalCredential(_dbContext, update, _configuration, _symmetricEncryption, _userid);
+			Console.WriteLine(JsonConvert.SerializeObject(update));
+			(StatusMessages status, PersonalCredential cred) = _credentialService.UpdatePersonalCredential(_dbContext, update, _configuration, _symmetricEncryption, _userid);
+			if(status == StatusMessages.UpdateCredential)
+			{
+				if(string.IsNullOrEmpty(update.originalpersonalfolderid) || string.IsNullOrWhiteSpace(update.originalpersonalfolderid))
+				{
+					if(cred.personalfolderid == null)
+					{
+						_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = new List<string>() { _userid.ToString() }, type = "personal" })).SendAsync("Notification",JsonConvert.SerializeObject(new { status = "update", type = "personal", data = cred }));
+					}
+					else
+					{
+						_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = new List<string>() { _userid.ToString() }, type = "personal" })).SendAsync("Notification", JsonConvert.SerializeObject(new { status = "delete", type = "personal", data = cred.id }));
+					}
+				}
+				else
+				{
+					if(cred.personalfolderid.HasValue && (!string.IsNullOrEmpty(update.originalpersonalfolderid) || !string.IsNullOrWhiteSpace(update.originalpersonalfolderid)))
+					{
+						if(cred.personalfolderid.ToString() == update.originalpersonalfolderid)
+						{
+							_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = new List<string>() { update.originalpersonalfolderid }, type = "personal" })).SendAsync("Notification", JsonConvert.SerializeObject(new { status = "update", type = "personal", data = cred }));
+						}
+						else
+						{
+							_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = new List<string>() { update.originalpersonalfolderid }, type = "personal" })).SendAsync("Notification", JsonConvert.SerializeObject(new { status = "delete", type = "personal", data = cred.id }));
+						}
+						
+					}
+					else
+					{
+						_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = new List<string>() { update.originalpersonalfolderid }, type = "personal" })).SendAsync("Notification", JsonConvert.SerializeObject(new { status = "delete", type = "personal", data = cred.id }));
+					}
+					
+				}
+			}
 			return StatusCode(status, status);
 
 		}

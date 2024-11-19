@@ -120,6 +120,7 @@ namespace LogginMessages
 
 		#region Validation Status Messages
 		public static StatusMessages InvalidName = new StatusMessages("Invalid name - alphanumeric characters only", 422);
+		public static StatusMessages InvalidValue = new StatusMessages("Invalid value - value presented is invalid", 422);
 		#endregion
 
 

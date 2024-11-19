@@ -15,7 +15,7 @@ using DTO.Client;
 using LogginMessages;
 
 
-namespace be.Controllers
+namespace BE.Controllers
 {
     [ApiController]
 	[Authorize(Roles = "User")]

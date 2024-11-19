@@ -10,8 +10,8 @@
         public string password { get; set; }
 
         public string? teamname { get; set; }
-        public Guid? clientid { get; set; }
-        public Guid? teamid { get; set; }
+        public Guid clientid { get; set; }
+        public Guid teamid { get; set; }
         public string? note { get; set; }
     }
 }

@@ -6,15 +6,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
-using Serilog.Events;
 using AAAService.Core;
-using LogginMessages;
 using AppServices;
 using DataMapper;
 using EmailService;
 using EncryptionLayer;
+using SignalR;
 
-namespace be
+namespace BE
 {
     public class Program
     {
@@ -32,11 +31,16 @@ namespace be
 										.ReadFrom.Services(services)
 										);
 
-            builder.Services.AddSignalR();
+			builder.Services.AddCors();
 
-            // Add services to the container.
-            string connectionstring = string.Empty;
+			builder.Services.AddSignalR(options => {
+				options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+			});
+
+			// Add services to the container.
+			string connectionstring = string.Empty;
 			builder.Services.AddControllers();
+            
             try
             {
 				connectionstring = builder.Configuration.GetConnectionString("sqlConnection");
@@ -81,7 +85,10 @@ namespace be
 
 			builder.Services.AddScoped<EmailNotificationService>();
 			builder.Services.AddScoped<MailJetMailer>();
+            builder.Services.AddScoped<ClientNotification>();
 			//builder.Services.AddTransient<PSDBInitializer>();
+
+			
 
 			builder.Services.AddIdentityApiEndpoints<User>(option =>
             {
@@ -95,7 +102,8 @@ namespace be
                 option.User.AllowedUserNameCharacters = "zaqxswcdevfrbgtnhymjukilopZAQXSWCDEVFRBGTNHYMJUKILOP1234567890";
 
             }).AddRoles<IdentityRole>().AddEntityFrameworkStores<PSDBContext>();
-              
+            
+
             builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                             .AddJwtBearer(options =>
 							{
@@ -110,31 +118,56 @@ namespace be
                                     ValidAudience = builder.Configuration.GetSection("Jwt:Audience").Value,
 									IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration.GetSection("Jwt:Key").Value))
 								};
+
+								options.Events = new JwtBearerEvents
+								{
+
+									OnMessageReceived = (context) =>
+									{
+										var accessToken = context.Request.Query["access_token"];
+
+										// If the request is for our hub...
+										var path = context.HttpContext.Request.Path;
+										if (!string.IsNullOrEmpty(accessToken) && (path.StartsWithSegments("/datasync")))
+										{
+
+											context.Token = accessToken;
+
+
+										}
+										return Task.CompletedTask;
+									}
+								};
+
 							});
 
-
-            builder.Services.AddMvc();
+			builder.Services.AddMvc();
 
             var app = builder.Build();
-
+			app.UseWebSockets();
+			app.UseCors(options =>
+            {
+                options.WithOrigins(["https://localhost:4200", "https://localhost"]);
+                options.AllowAnyHeader();
+                options.WithMethods("GET", "POST");
+				options.AllowCredentials();
+            });
 			// Configure the HTTP request pipeline.
 			app.UseAuthentication();
             app.UseAuthorization();
-
-
             app.MapControllers();
-            //app.MapHub<DataSync>("api/datasync");
-            //Auto Database Initialization
-            //using (var scope = app.Services.CreateScope())
-            //{
-            //    var services = scope.ServiceProvider;
-            //
-            //    var initializer = services.GetRequiredService<PSDBInitializer>();
-            //
-            //    initializer.Run();
-            //}
+			app.MapHub<DataSync>("/datasync");
+			//Auto Database Initialization
+			//using (var scope = app.Services.CreateScope())
+			//{
+			//    var services = scope.ServiceProvider;
+			//
+			//    var initializer = services.GetRequiredService<PSDBInitializer>();
+			//
+			//    initializer.Run();
+			//}
 
-            app.Run();
+			app.Run();
         }
     }
 }

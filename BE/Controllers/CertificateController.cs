@@ -10,9 +10,12 @@ using AAAService.Core;
 using AAAService.Validators;
 using DTO;
 using LogginMessages;
+using Microsoft.AspNetCore.SignalR;
+using SignalR;
+using Newtonsoft.Json;
 
 
-namespace be.Controllers
+namespace BE.Controllers
 {
     [ApiController]
     
@@ -27,7 +30,8 @@ namespace be.Controllers
         private readonly UserManager<DomainModel.User> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ILogger<CertificateService> _logger;
-        public CertificateController(PSDBContext dbContext, CertificateService service, CertificateDataMapper dataMapper, JwtManager jwtManager, IConfiguration configuration, UserManager<DomainModel.User> userManager, RoleManager<IdentityRole> roleManager, ILogger<CertificateService> logger)
+		private readonly IHubContext<DataSync> _hubContext;
+        public CertificateController(PSDBContext dbContext, CertificateService service, CertificateDataMapper dataMapper, JwtManager jwtManager, IConfiguration configuration, UserManager<DomainModel.User> userManager, RoleManager<IdentityRole> roleManager, ILogger<CertificateService> logger, IHubContext<DataSync> hubContext)
         {
             _dbContext = dbContext;
             _service = service;
@@ -37,6 +41,7 @@ namespace be.Controllers
             _userManager = userManager;
             _roleManager = roleManager;
             _logger = logger;
+			_hubContext = hubContext;
         }
         [HttpGet("api/[controller]/{clientid:guid}")]
         public async Task<IActionResult> GetCertificateByClientID(Guid clientid, [FromServices] Validation validation)
@@ -93,7 +98,17 @@ namespace be.Controllers
 				return StatusCode(403);
 			}
 			(_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
-			StatusMessages status = _service.UploadCertificate(_configuration, _dbContext, _symmetricEncryption, up, userid, _logger);
+			(StatusMessages status, List<Certificate> data) = _service.UploadCertificate(_configuration, _dbContext, _symmetricEncryption, up, userid, _logger);
+			
+			if(StatusMessages.AddNewCertificate == status)
+			{
+				foreach(Certificate i in data)
+				{
+					_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = i.teamid, type = "certificate" }))
+					.SendAsync("Notification", JsonConvert.SerializeObject(new { status = "new", type = "certificate", data = i }));
+				}
+			}
+
 			return StatusCode(status, status);
 
 		}
@@ -109,7 +124,11 @@ namespace be.Controllers
 			}
 			(_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
 			StatusMessages status = _service.Delete(id, teamid, _dbContext, _configuration, userid);
-
+			if(status == StatusMessages.DeleteCertificate)
+			{
+				_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = teamid, type = "certificate" }))
+				.SendAsync("Notification", JsonConvert.SerializeObject(new { status = "delete", type = "certificate", data = id }));
+			}
 			return StatusCode(status, status);
 			
 		}
