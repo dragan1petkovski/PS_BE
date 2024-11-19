@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+using DTO.Validators;
 namespace DTO.User
 {
 	public class SetNewPassword
@@ -13,11 +10,11 @@ namespace DTO.User
 		public Guid? requestid {  get; set; }
 
 		[Required]
-		[StringLength(int.MaxValue, MinimumLength = 8)]
+		[PasswordComplexity]
 		public string password {  get; set; }
 
 		[Required]
-		[StringLength(int.MaxValue, MinimumLength = 8)]
+		[PasswordComplexity]
 		public string confirmpassword { get; set; }
 	}
 }

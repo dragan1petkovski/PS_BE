@@ -88,6 +88,7 @@ namespace BE.Controllers
 			}
 			if (setNewPassword.password != setNewPassword.confirmpassword)
 			{
+				ViewData["ErrorMessage"] = "Confirmation password is not same";
 				return View(setNewPassword);
 			}
 			
@@ -99,6 +100,10 @@ namespace BE.Controllers
 					_dbContext.EmailNotifiers.Remove(changeRequest);
 					_dbContext.SaveChanges();
 					return Redirect("https://localhost:4200/");
+				}
+				else
+				{
+					return RedirectToAction("SetNewPassword");
 				}
 			}
 			else if(changeRequest.type == TypeEnum.ResetPassword)
