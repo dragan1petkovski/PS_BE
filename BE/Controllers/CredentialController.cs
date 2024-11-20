@@ -162,7 +162,12 @@ namespace BE.Controllers
 				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
 			}
 			(_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
-			StatusMessages status = _credentialService.CreatePersonalCredential(userid, postPersonalCredential, _dbContext, _symmetricEncryption, _configuration);
+			(StatusMessages status,PersonalCredential output) = _credentialService.CreatePersonalCredential(userid, postPersonalCredential, _dbContext, _symmetricEncryption, _configuration);
+			if(status == StatusMessages.AddNewCredential)
+			{
+				_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = new List<Guid>() { output.personalfolderid.HasValue ? output.personalfolderid.Value : userid }, type = "personal" }))
+										.SendAsync("Notification",JsonConvert.SerializeObject(new {status="new",type="personal",data=output}));
+			}
 			return StatusCode(status, status);
 		}
 
@@ -197,7 +202,7 @@ namespace BE.Controllers
 			StatusMessages status = _credentialService.DeletePersonalCredential(id, personalFolderId.HasValue?personalFolderId.Value:Guid.Empty, _userid, _dbContext, _logger);
 			if (StatusMessages.DeleteCredential == status)
 			{
-				_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = personalFolderId.HasValue?personalFolderId.Value:id, type = "personal" }))
+				_hubContext.Clients.Group(JsonConvert.SerializeObject(new { id = new List<Guid>() { personalFolderId.HasValue ? personalFolderId.Value : _userid }, type = "personal" }))
 									.SendAsync("Notification", JsonConvert.SerializeObject(new { status = "delete", type = "personal", data = id }));
 			}
 			return StatusCode(status, status);

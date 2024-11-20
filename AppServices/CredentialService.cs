@@ -315,15 +315,16 @@ namespace AppServices
 
 		}
 
-		public StatusMessages CreatePersonalCredential(Guid userid, PostPersonalCredential postPersonalCredential, PSDBContext _dbContext, SymmetricEncryption _symmetricEncryption, IConfiguration _configuration)
+		public (StatusMessages,DTO.Credential.PersonalCredential) CreatePersonalCredential(Guid userid, PostPersonalCredential postPersonalCredential, PSDBContext _dbContext, SymmetricEncryption _symmetricEncryption, IConfiguration _configuration)
 		{
 			User user = _dbContext.Users.Include(u => u.folders)
 										.Include(u => u.folders).ThenInclude(pf => pf.credentials)
 										.FirstOrDefault(u => u.Id == userid.ToString());
 			DomainModel.Credential newPersonalCredential = new DomainModel.Credential();
+			DTO.Credential.PersonalCredential syncPersoanl = new DTO.Credential.PersonalCredential();
 			if (user == null)
 			{
-				return StatusMessages.UnauthorizedAccess;
+				return (StatusMessages.UnauthorizedAccess,null);
 			}
 
 			DomainModel.PersonalFolder personalFolder = user.folders.FirstOrDefault(pf => pf.id == postPersonalCredential.personalFolderId);
@@ -333,6 +334,7 @@ namespace AppServices
 
 			SymmetricKey key = _symmetricEncryption.EncryptString(postPersonalCredential.password, _configuration);
 
+			newPersonalCredential.id = Guid.NewGuid();
 			newPersonalCredential.password = new Password() { password = key.password, aad = key.aad, id = Guid.NewGuid(), createdate = DateTime.Now, updatedate = DateTime.Now };
 			newPersonalCredential.remote = postPersonalCredential.remote;
 			newPersonalCredential.email = postPersonalCredential.email;
@@ -340,12 +342,20 @@ namespace AppServices
 			newPersonalCredential.createdate = DateTime.Now;
 			newPersonalCredential.updatedate = DateTime.Now;
 
+			syncPersoanl.remote = newPersonalCredential.remote;
+			syncPersoanl.email = newPersonalCredential.email;
+			syncPersoanl.note = newPersonalCredential.note;
+			syncPersoanl.domain = newPersonalCredential.domain;
+			syncPersoanl.id = newPersonalCredential.id;
+			syncPersoanl.username = newPersonalCredential.username;
+
 			if (personalFolder != null)
 			{
 
 				if (personalFolder.credentials != null)
 				{
 					personalFolder.credentials.Add(newPersonalCredential);
+				
 				}
 				else
 				{
@@ -354,16 +364,17 @@ namespace AppServices
 
 				try
 				{
+					syncPersoanl.personalfolderid = personalFolder.id;
 					_dbContext.Passwords.Add(newPersonalCredential.password);
 					_dbContext.Credentials.Add(newPersonalCredential);
 					_dbContext.PersonalFolders.Update(personalFolder);
 
 					_dbContext.SaveChanges();
-					return StatusMessages.AddNewCredential;
+					return (StatusMessages.AddNewCredential, syncPersoanl);
 				}
 				catch
 				{
-					return StatusMessages.UnableToService;
+					return (StatusMessages.UnableToService,null);
 				}
 			}
 			else
@@ -380,13 +391,14 @@ namespace AppServices
 				}
 				try
 				{
+					syncPersoanl.personalfolderid = null;
 					_dbContext.Users.Update(user);
 					_dbContext.SaveChanges();
-					return StatusMessages.AddNewCredential;
+					return (StatusMessages.AddNewCredential, syncPersoanl);
 				}
 				catch
 				{
-					return StatusMessages.UnableToService;
+					return (StatusMessages.UnableToService,null);
 				}
 			}
 
@@ -569,8 +581,9 @@ namespace AppServices
 			try
 			{
 				user = _dbContext.Users.Include(u => u.teams)
-										.Include(u => u.teams).ThenInclude(t => t.credentials)
-										.Include(u => u.teams).ThenInclude(t => t.credentials).ThenInclude(c => c.password)
+										.Include(u => u.teams).ThenInclude(t => t.client).AsSplitQuery()
+										.Include(u => u.teams).ThenInclude(t => t.credentials).AsSplitQuery()
+										.Include(u => u.teams).ThenInclude(t => t.credentials).ThenInclude(c => c.password).AsSplitQuery()
 										.FirstOrDefault(u => u.Id == userid.ToString());
 			}
 			catch
@@ -613,6 +626,7 @@ namespace AppServices
 				syncCredential.remote = update.remote;
 				syncCredential.note = update.note;
 				syncCredential.teamid = team.id;
+				syncCredential.clientid = team.client.id;
 
 
 				try

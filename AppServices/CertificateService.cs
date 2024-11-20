@@ -55,6 +55,7 @@ namespace AppServices
 			files.Add(uploadCertificate.certfile);
 			if(uploadCertificate.certpass == null && uploadCertificate.certkey != null)
 			{
+				Console.WriteLine($"This is certificate with a key");
 				files.Add(uploadCertificate.certkey);
 				foreach (ClientTeamPair pair in pairList)
 				{
@@ -100,6 +101,7 @@ namespace AppServices
 					syncCertificate.issuedby = newCertificate.issuedBy;
 					syncCertificate.friendlyname = newCertificate.friendlyname;
 					syncCertificate.expirationdate = newCertificate.expirationDate;
+					syncCertificate.pem = true;
 					
 
 					Client client = _dbContext.Clients.Include(c => c.teams).FirstOrDefault(c => c.id == pair.clientid);
@@ -120,11 +122,15 @@ namespace AppServices
 					{
 						team.certificates.Add(newCertificate);
 						syncCertificate.teamid = team.id;
+						syncCertificate.teamname = team.name;
+						syncCertificate.clientid = team.client.id;
 					}
 					else
 					{
 						team.certificates = [newCertificate];
 						syncCertificate.teamid = team.id;
+						syncCertificate.teamname = team.name;
+						syncCertificate.clientid = team.client.id;
 					}
 
 					try
@@ -154,7 +160,6 @@ namespace AppServices
 			}
 			else if(uploadCertificate.certpass != null && uploadCertificate.certkey == null)
 			{
-				Console.WriteLine("Debug#2: ");
 				foreach (ClientTeamPair pair in pairList)
 				{
 					CertificateFile certfile = new CertificateFile();
@@ -192,6 +197,7 @@ namespace AppServices
 					syncCertificate.issuedby = newCertificate.issuedBy;
 					syncCertificate.friendlyname = newCertificate.friendlyname;
 					syncCertificate.expirationdate = newCertificate.expirationDate;
+					syncCertificate.pem = false;
 
 					SymmetricKey key = _symmetricEncryption.EncryptString(uploadCertificate.certpass, configuration);
 
@@ -214,11 +220,15 @@ namespace AppServices
 					{
 						team.certificates.Add(newCertificate);
 						syncCertificate.teamid = team.id;
+						syncCertificate.teamname = team.name;
+						syncCertificate.clientid = team.client.id;
 					}
 					else
 					{
 						team.certificates = [newCertificate];
 						syncCertificate.teamid = team.id;
+						syncCertificate.teamname = team.name;
+						syncCertificate.clientid = team.client.id;
 					}
 					try
 					{

@@ -110,7 +110,7 @@ namespace AppServices
         public (StatusMessages,DTO.Team.Team) Update(PostTeamUpdate update, [FromServices] PSDBContext _dbContext)
         {
 			DTO.Team.Team syncTeam = new DTO.Team.Team();
-			DomainModel.Team team = null;
+			DomainModel.Team team = new DomainModel.Team();
 			try
 			{
 				team = _dbContext.Teams.Include(t => t.users).AsSplitQuery()
@@ -145,6 +145,11 @@ namespace AppServices
 			}
 			else
 			{
+				team.name = update.name;
+				syncTeam.name = team.name;
+				syncTeam.clientname = team.client.name;
+				syncTeam.clientid = team.client.id;
+				syncTeam.id = team.id;
 				team.users.RemoveAll(u => true);
 			}
 			team.updatedate = DateTime.Now;

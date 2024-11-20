@@ -100,7 +100,8 @@ namespace AppServices
                 ClientForAdmins output = new ClientForAdmins();
                 output.id = newClient.id;
                 output.name = newClient.name;
-                output.createdate = DateTime.Now;
+                output.createdate = newClient.createdate;
+                output.updatedate = newClient.updatedate;
 
                 return (StatusMessages.AddNewClient,output);
             }
@@ -129,26 +130,33 @@ namespace AppServices
 			return (StatusMessages.Ok, new ClientUpdate() { id = client.id, name = client.name });
 		}
 
-        public StatusMessages Update(ClientUpdate update, PSDBContext _dbContext)
+        public (StatusMessages,ClientForAdmins) Update(ClientUpdate update, PSDBContext _dbContext)
         {
             Client client = null;
+            ClientForAdmins syncClient = new ClientForAdmins();
             try
             {
 				client = _dbContext.Clients.Find(update.id);
 			}
             catch
             {
-                return StatusMessages.UnableToService;
+                return (StatusMessages.UnableToService,null);
             }
             if (client == null)
             {
-                return StatusMessages.ClientNotexist;
+                return (StatusMessages.ClientNotexist,null);
 			}
 			client.name = update.name;
 			client.updatedate = DateTime.Now;
+
+			syncClient.name = update.name;
+            syncClient.id = client.id;
+            syncClient.createdate = client.createdate;
+            syncClient.updatedate = client.updatedate;
+
 			_dbContext.Clients.Update(client);
 			_dbContext.SaveChanges(true);
-			return StatusMessages.UpdateClient;
+			return (StatusMessages.UpdateClient,syncClient);
 		}
 
         //Missing Logging features

@@ -138,7 +138,7 @@ namespace BE.Controllers
 			{
 				return StatusCode(403, StatusMessages.AccessDenied);
 			}
-			(StatusMessages status,DTO.Client.ClientForAdmins output) = _service.Create(_dbContext, postClient);
+			(StatusMessages status,ClientForAdmins output) = _service.Create(_dbContext, postClient);
 			if(status == StatusMessages.AddNewClient)
 			{
 				_hubContext.Clients.Group("client").SendAsync("AdminNotification", JsonConvert.SerializeObject(new {status="new",type="client",data=output}));
@@ -156,10 +156,10 @@ namespace BE.Controllers
 			{
 				return StatusCode(403,StatusMessages.AccessDenied);
 			}
-			StatusMessages status = _service.Update(update, _dbContext);
+			(StatusMessages status, ClientForAdmins output) = _service.Update(update, _dbContext);
 			if(StatusMessages.UpdateClient == status)
 			{
-				_hubContext.Clients.Group("client").SendAsync("AdminNotification",JsonConvert.SerializeObject(new {status="update", type="client",data=update}));
+				_hubContext.Clients.Group("client").SendAsync("AdminNotification",JsonConvert.SerializeObject(new {status="update", type="client",data= output }));
 			}
 			return StatusCode(status, status);
 		}
