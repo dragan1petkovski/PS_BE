@@ -65,7 +65,7 @@ namespace BE.Controllers
 				(bool _, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
 				if (!id.HasValue)
 				{
-					return StatusCode(200, _dataMapper.ConvertUserListToUserFullDTOList(_service.GetAllUsers(_dbContext)).Where(u => u.id != userid).ToList());
+					return StatusCode(200, (await _dataMapper.ConvertUserListToUserFullDTOList(_service.GetAllUsers(_dbContext),_userManager)).Where(u => u.id != userid).ToList());
 				}
 				else
 				{
@@ -100,17 +100,27 @@ namespace BE.Controllers
 		}
 
 
-		[HttpPost("api/[controller]")]
+		[HttpPost("api/[controller]/{type?}")]
 		[Authorize(Roles = "Administrator")]
-		public async Task<IActionResult> Create(PostUser user, [FromServices] MailJetMailer smtpclient, [FromServices] Validation validation)
+		public async Task<IActionResult> Create(string? type, PostUser user, [FromServices] MailJetMailer smtpclient, [FromServices] Validation validation)
 		{
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
 			validation.AddValidator(new IsUserAdmin(Request.Headers.Authorization, _userManager));
+			StatusMessages status = null;
+			DTO.User.User data = null;
 			if (!(await validation.ProcessAsync()))
 			{
 				return StatusCode(StatusMessages.AccessDenied, StatusMessages.AccessDenied);
 			}
-			(StatusMessages status, DTO.User.User data) = await _service.AddUser(user, _dbContext, _configuration, smtpclient, _logger);
+			if(type == "admin")
+			{
+				(status, data) = await _service.AddUser("admin", user, _dbContext, _configuration, smtpclient, _logger);
+			}
+			else
+			{
+				(status, data) = await _service.AddUser("user",user, _dbContext, _configuration, smtpclient, _logger);
+			}
+			
 			if(status == StatusMessages.AddNewUser)
 			{
 				_hubContext.Clients.Group("user").SendAsync("AdminNotification", JsonConvert.SerializeObject(new { status = "new", type = "user", data = data }));

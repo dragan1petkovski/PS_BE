@@ -21,6 +21,6 @@ namespace DTO.User
 		[RegularExpression(@"^[a-zA-Z0-9]*$")]
 		public string username { get; set; }
 
-        public List<ClientTeamPair> clientTeamPairs { get; set; }
+        public List<ClientTeamPair>? clientTeamPairs { get; set; }
     }
 }

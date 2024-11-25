@@ -8,15 +8,17 @@ namespace DataMapper
 	public class UserDataMapper
 	{
 
-		public List<DTO.User.User> ConvertUserListToUserFullDTOList(List<DomainModel.User> userList)
+		public async Task<List<DTO.User.User>> ConvertUserListToUserFullDTOList(List<DomainModel.User> userList, UserManager<DomainModel.User> _userManager)
 		{
 			List<DTO.User.User> result = new List<DTO.User.User>();
-
+			
 			foreach (DomainModel.User user in userList)
 			{
+				List<string> roles = (List<string>)await _userManager.GetRolesAsync(user);
 				result.Add(new DTO.User.User()
 				{
 					id = Guid.Parse(user.Id),
+					rolename = roles.FirstOrDefault(),
 					firstname = user.firstname,
 					lastname = user.lastname,
 					username = user.UserName,

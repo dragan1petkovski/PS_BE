@@ -42,6 +42,7 @@ namespace LogginMessages
 		public static StatusMessages UnauthorizedAccess = new StatusMessages("Unauthorized Access Denied", 401);
 		public static StatusMessages ResourceNotFound = new StatusMessages("Resource Not Found", 404);
 		public static StatusMessages Ok = new StatusMessages("OK", 200);
+		public static StatusMessages InvalidRequest = new StatusMessages("Invalid Request", 400);
 		#endregion
 
 		#region User Status Messages

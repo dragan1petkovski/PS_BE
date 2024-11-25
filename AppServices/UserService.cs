@@ -23,7 +23,7 @@ namespace AppServices
             return _dbContext.Users.ToList();
         }
 
-		public async Task<(StatusMessages,DTO.User.User)> AddUser(PostUser _newUser, PSDBContext _dbContext, IConfiguration _configuration, MailJetMailer _smtpclient, ILogger<UserService> _logger)
+		public async Task<(StatusMessages,DTO.User.User)> AddUser(string type , PostUser _newUser, PSDBContext _dbContext, IConfiguration _configuration, MailJetMailer _smtpclient, ILogger<UserService> _logger)
         {
 			bool ifExit = true;
 			DTO.User.User syncUser = new DTO.User.User();
@@ -54,14 +54,29 @@ namespace AppServices
 				newUser.NormalizedEmail = newUser.Email.Normalize();
 				newUser.UserName = _newUser.username;
 				newUser.NormalizedUserName = _newUser.username.Normalize();
-				newUser.teams = _dbContext.Teams.Where(t => _newUser.clientTeamPairs.Select(ct => ct.teamid).ToList().Any(ct => ct == t.id)).Distinct().ToList();
+				if(_newUser.clientTeamPairs != null)
+				{
+					newUser.teams = _dbContext.Teams.Where(t => _newUser.clientTeamPairs.Select(ct => ct.teamid).ToList().Any(ct => ct == t.id)).Distinct().ToList();
+				}
 				newUser.EmailConfirmed = false;
 				newUser.updatedate = DateTime.Now;
-
-				string roleID = _dbContext.Roles.FirstOrDefault(r => r.Name == "User").Id;
-				_dbContext.UserRoles.Add(new IdentityUserRole<string>() { RoleId = roleID, UserId = newUser.Id });
-
-
+				string rolename = null;
+				if(type == "user")
+				{
+					IdentityRole role = _dbContext.Roles.FirstOrDefault(r => r.Name == "User");
+					rolename = role.Name;
+					_dbContext.UserRoles.Add(new IdentityUserRole<string>() { RoleId = role.Id, UserId = newUser.Id });
+				}
+				else if(type == "admin" && _newUser.clientTeamPairs == null)
+				{
+					IdentityRole role = _dbContext.Roles.FirstOrDefault(r => r.Name == "Administrator");
+					rolename = role.Name;
+					_dbContext.UserRoles.Add(new IdentityUserRole<string>() { RoleId = role.Id, UserId = newUser.Id });
+				}
+				else
+				{
+					return (StatusMessages.InvalidRequest, null);
+				}
 				EmailNotification setnewpassword = new EmailNotification();
 				setnewpassword.Id = Guid.NewGuid();
 				setnewpassword.type = TypeEnum.SetNewPassword;
@@ -78,6 +93,7 @@ namespace AppServices
 				syncUser.id = Guid.Parse(newUser.Id);
 				syncUser.createdate = newUser.createdate;
 				syncUser.updatedate = newUser.updatedate;
+				syncUser.rolename = rolename;
 
 
 				string body = _smtpclient.ResetPasswordBody(newUser.NormalizedUserName, setnewpassword.Id.ToString());
