@@ -95,12 +95,11 @@ namespace AppServices
 				syncUser.updatedate = newUser.updatedate;
 				syncUser.rolename = rolename;
 
-
-				string body = _smtpclient.ResetPasswordBody(newUser.NormalizedUserName, setnewpassword.Id.ToString());
+				EmailMessages messages = new EmailMessages(_configuration);
 
 				try
 				{
-					if (await _smtpclient.SendMailMessage(_configuration, newUser.NormalizedEmail, body, _smtpclient.Subject))
+					if (await _smtpclient.SendEmail(_smtpclient.GetFromMailAddress(), messages.ResetPasswordBody(newUser.UserName, newUser.Id), messages.Subject))
 					{
 						_dbContext.Users.Add(newUser);
 					}
@@ -150,9 +149,9 @@ namespace AppServices
 			resetPassword.user = user;
 			resetPassword.validationCode = await _userManager.GeneratePasswordResetTokenAsync(user);
 
-			string body = _smtpclient.SetNewPasswordBody(user.NormalizedUserName, resetPassword.Id.ToString());
+			EmailMessages message = new EmailMessages(_configuration);
 
-			if (await _smtpclient.SendMailMessage(_configuration, user.NormalizedEmail, body, _smtpclient.Subject))
+			if (await _smtpclient.SendEmail(_smtpclient.GetFromMailAddress(), message.SetNewPasswordBody(user.NormalizedUserName, resetPassword.Id.ToString()),message.Subject))
 			{
 				try
 				{
@@ -261,9 +260,11 @@ namespace AppServices
 			verificationCode.Id = verificationCodeid;
 			verificationCode.createdon = DateTime.Now;
 
+			EmailMessages message = new EmailMessages(_configuration);
+			
 			try
 			{
-				if (await smtpClinet.SendMailMessage(_configuration, loggedUser.NormalizedEmail, smtpClinet.GetVerificationCode(loggedUser.NormalizedUserName, code), smtpClinet.Subject))
+				if (await smtpClinet.SendEmail(smtpClinet.GetFromMailAddress(), message.GetVerificationCode(loggedUser.NormalizedUserName,code), message.Subject))
 				{
 					_dbContext.EmailNotifiers.Add(verificationCode);
 					_dbContext.SaveChanges();

@@ -2,59 +2,60 @@
 using MimeKit;
 using Microsoft.Extensions.Configuration;
 using Mailjet;
+using Mailjet.Client.Resources;
 
 
 namespace EmailService
 {
-	public class SMTPClient
+	public class SMTPClient: iEmailService
 	{
-
-		public MimeMessage SetNewPasswordMessage(IConfiguration configuration, string sendToMail, string username, string userId)
+		private string _fromEmail;
+		private string _serverName;
+		private string _username;
+		private string _password;
+		private int _port;
+		private bool _smtpssl;
+		public void EmailConfigurationFromAppSettings(IConfiguration configuration, string configSelection)
 		{
-			MimeMessage message = new MimeMessage();
-			message.From.Add(new MailboxAddress("PasswordSense", configuration.GetSection("SmtpSettings:email").Value));
-			message.To.Add(new MailboxAddress(sendToMail, sendToMail));
-
-			message.Body = new TextPart()
+			try
 			{
-				Text = "Hello "+username+",\nTo set your password visit the link below.\nhttps://localhost/emailnotification/setnewpassword/" + userId + "\n\n\nKind Regards,\nPasswordSense"
-			};
-
-			return message;
-		}
-
-		public MimeMessage GetVerificationCode(IConfiguration configuration, string sendToMail, int verificationcode, string username) 
-		{
-			MimeMessage message = new MimeMessage();
-			message.From.Add(new MailboxAddress("PasswordSense", configuration.GetSection("SmtpSettings:email").Value));
-			message.To.Add(new MailboxAddress(sendToMail, sendToMail));
-
-			message.Body = new TextPart()
+				_fromEmail = configuration.GetSection($"{configSelection}:email").Value;
+				_serverName = configuration.GetSection($"{configSelection}:SMTPserver").Value;
+				_username = configuration.GetSection($"{configSelection}:username").Value;
+				_password = configuration.GetSection($"{configSelection}:password").Value;
+				_port = Int32.Parse(configuration.GetSection($"{configSelection}:SMTPPort").Value);
+				_smtpssl = false;
+			}
+			catch (Exception ex)
 			{
-				Text = "Hello " + username + ",\nYour verification code is valid for 1 minute.\n\nCode:  "+verificationcode+"\n\n\nKind Regards,\nPasswordSense"
-			};
-
-			return message;
+				Console.WriteLine($"Email Configuration failed with following error:\n {ex.Message}");
+			}
 		}
-
-		public bool SendEmailMessage(IConfiguration configuration, MimeMessage message)
+		public async Task<bool> SendEmail(string toMailAddress, string emailMessage, string emailSubject)
 		{
 			using (SmtpClient smtpClient = new SmtpClient())
 			{
+				MimeMessage message = new MimeMessage();
+				message.From.Add(new MailboxAddress("PasswordSense", _fromEmail));
+				message.To.Add(new MailboxAddress(toMailAddress, toMailAddress));
+
+				message.Body = new TextPart()
+				{
+					Text = emailMessage
+				};
+
+				message.Subject = emailSubject;
+
 				try
 				{
-					string smtpServer = configuration.GetSection("SmtpSettings:server").Value;
-					int smtpPort = int.Parse(configuration.GetSection("SmtpSettings:port").Value);
-					bool smtpssl = bool.Parse(configuration.GetSection("SmtpSettings:ssl").Value);
-					string email = configuration.GetSection("SmtpSettings:email").Value;
-					string passwod = configuration.GetSection("SmtpSettings:emailpassword").Value;
-					smtpClient.Connect(smtpServer, smtpPort, smtpssl);
-					smtpClient.Authenticate(email, passwod);
+
+					smtpClient.Connect(_serverName, _port, _smtpssl);
+					smtpClient.Authenticate(_username, _password);
 					smtpClient.Send(message);
 					smtpClient.Disconnect(true);
 					return true;
 				}
-				catch(Exception ex)
+				catch (Exception ex)
 				{
 
 					Console.WriteLine("SendMail Error: {0}", ex.Message);
@@ -63,5 +64,6 @@ namespace EmailService
 
 			}
 		}
+
 	}
 }

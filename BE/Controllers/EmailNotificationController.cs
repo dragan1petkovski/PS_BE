@@ -123,6 +123,7 @@ namespace BE.Controllers
 		[HttpPost("deleterequest")]
 		public async Task<IActionResult> DeleteVerificationRequest([FromBody] DeleteAdminRequest item, [FromServices] MailJetMailer _mailjetMailer, [FromServices] IConfiguration _configuration, [FromServices] Validation validation)
 		{
+			
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
 			validation.AddValidator(new IsUserAdmin(Request.Headers.Authorization, _userManager));
 			if (!(await validation.ProcessAsync()))
@@ -135,6 +136,8 @@ namespace BE.Controllers
 			{
 				return StatusCode(404,StatusMessages.ResourceNotFound);
 			}
+			EmailMessages message = new EmailMessages(_configuration);
+			_mailjetMailer.EmailConfigurationFromAppSettings(_configuration, "MailJetSettings");
 
 			bool flag = Enum.TryParse(typeof(ItemType), item.type, out object type);
 			Random random = new Random();
@@ -149,7 +152,7 @@ namespace BE.Controllers
 			deleteItem.verificationCode = code;
 			deleteItem.createdate = DateTime.Now;
 
-			if (await _mailjetMailer.SendMailMessage(_configuration, user.NormalizedEmail, _mailjetMailer.GetVerificationCode(user.NormalizedUserName, code), _mailjetMailer.Subject))
+			if (await _mailjetMailer.SendEmail(_mailjetMailer.GetFromMailAddress(), message.GetVerificationCode(user.NormalizedUserName, code),message.Subject ))
 			{
 				_dbContext.deleteVerifications.Add(deleteItem);
 				_dbContext.SaveChanges();

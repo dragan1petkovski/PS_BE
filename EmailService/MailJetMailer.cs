@@ -6,31 +6,38 @@ using Newtonsoft.Json.Linq;
 
 namespace EmailService
 {
-	public class MailJetMailer: IDisposable
+	public class MailJetMailer: IDisposable, iEmailService
 	{
-		public string Subject = "PasswordSense do not reply";
+		MailjetClient _client;
+		private string _fromMailAddress;
 
-		public Func<string, string, string> ResetPasswordBody = (string username, string userId) => "Hello " + username + ",\nTo reset your password visit the link below.\nhttps://localhost/user/SetNewPassword/" + userId + "\n\n\nKind Regards,\nPasswordSense";
-
-		public Func<string, string, string> SetNewPasswordBody = (string username, string userId) => "Hello " + username + ",\nTo set your password visit the link below.\nhttps://localhost/user/SetNewPassword/" + userId + "\n\n\nKind Regards,\nPasswordSense";
-
-		public Func<string, int, string> GetVerificationCode = (string username, int verificationcode) => "Hello " + username + ",\nYour verification code is valid for 1 minute.\n\nCode:  " + verificationcode + "\n\n\nKind Regards,\nPasswordSense";
-
-		public async Task<bool> SendMailMessage(IConfiguration _configuration, string toMail, string message, string subject)
+		public string GetFromMailAddress() => _fromMailAddress;
+		public void EmailConfigurationFromAppSettings(IConfiguration configuration, string configSelection)
 		{
-			MailjetClient client = new MailjetClient(_configuration.GetSection("MailJetSettings:apikey").Value, _configuration.GetSection("MailJetSettings:secretkey").Value);
+			try
+			{
+				_client = new MailjetClient(configuration.GetSection($"{configSelection}:apikey").Value, configuration.GetSection($"{configSelection}:secretkey").Value);
+				_fromMailAddress = configuration.GetSection($"{configSelection}:email").Value;
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Email Configuration failed with following error:\n {ex.Message}");
+			}
+		}
+		public async Task<bool> SendEmail(string toMailAddress, string EmailMessage, string EmailSubject)
+		{
 			MailjetRequest request = new MailjetRequest
 			{
 				Resource = Send.Resource,
 			}
-			   .Property(Send.FromEmail, _configuration.GetSection("MailJetSettings:email").Value)
-			   .Property(Send.Subject, subject)
-			   .Property(Send.TextPart, message)
-			   .Property(Send.To, string.Format("{0} {1}", toMail, toMail));
+				.Property(Send.FromEmail, _fromMailAddress)
+				.Property(Send.Subject, EmailSubject)
+				.Property(Send.TextPart, EmailMessage)
+				.Property(Send.To, string.Format("{0} {1}", toMailAddress, toMailAddress));
 			MailjetResponse response = null;
 			try
 			{
-				response = await client.PostAsync(request);
+				response = await _client.PostAsync(request);
 			}
 			catch
 			{
