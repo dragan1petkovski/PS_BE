@@ -38,7 +38,7 @@ namespace BE.Controllers
             _userManager = userManager;
         }
 		
-		[HttpGet("api/[controller]/certificate/{id:guid:required}/{parentid:guid}")]
+		[HttpGet("[controller]/certificate/{id:guid:required}/{parentid:guid}")]
 		public async Task<IActionResult> CertificatePassword(Guid id, Guid parentid, [FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -55,7 +55,7 @@ namespace BE.Controllers
 			return StatusCode(status, status);
         }
 
-		[HttpGet("api/[controller]/credential/{id:guid:required}/{parentid:guid}")]
+		[HttpGet("[controller]/credential/{id:guid:required}/{parentid:guid}")]
 		public async Task<IActionResult> CredentialPassword(Guid id, Guid parentid, [FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -72,7 +72,7 @@ namespace BE.Controllers
 			return StatusCode(status, status);
 		}
 
-		[HttpGet("api/[controller]/personal/{id:guid:required}/{parentid:guid?}")]
+		[HttpGet("[controller]/personal/{id:guid:required}/{parentid:guid?}")]
 		public async Task<IActionResult> PersonalPassword(Guid id, Guid parentid, [FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));

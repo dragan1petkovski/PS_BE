@@ -51,8 +51,7 @@ namespace AppServices
 			{
 				return  (StatusMessages.AccessDenied,null);
 			}
-			List<IFormFile> files = new List<IFormFile>();
-			files.Add(uploadCertificate.certfile);
+			List<IFormFile> files = [uploadCertificate.certfile];
 			if(uploadCertificate.certpass == null && uploadCertificate.certkey != null)
 			{
 				Console.WriteLine($"This is certificate with a key");

@@ -34,7 +34,7 @@ namespace BE.Controllers
             _userManager = userManager;
         }
 
-        [HttpGet("api/[controller]/{pfid:guid?}")]
+        [HttpGet("[controller]/{pfid:guid?}")]
         public async Task<IActionResult> GetCredentialFoldersByUserID(Guid? pfid,[FromServices] Validation _validation)
         {
 			_validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -67,7 +67,7 @@ namespace BE.Controllers
 
 		}
 
-		[HttpPut("api/[Controller]/{personalFolderId:guid}")]
+		[HttpPut("[Controller]/{personalFolderId:guid}")]
 		public async Task<IActionResult> Update(Guid personalFolderId, PostPersonalFolder folderName, [FromServices] Validation _validation)
 		{
 			{
@@ -82,7 +82,7 @@ namespace BE.Controllers
 			}
 		}
 
-        [HttpPost("api/[controller]")]
+        [HttpPost("[controller]")]
         public async Task<IActionResult> AddFolderByUserId(PostPersonalFolder folderName, [FromServices] Validation _validation)
         {
 			_validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -95,7 +95,7 @@ namespace BE.Controllers
 			return StatusCode(status, status);
         }
 
-        [HttpDelete("api/[controller]/{id:guid}")]
+        [HttpDelete("[controller]/{id:guid}")]
         public async Task<IActionResult> Delete(Guid id, [FromServices] UserManager<User> _userManager, [FromServices] RoleManager<IdentityRole> _roleManager, [FromServices] Validation _validation)
         {
 			_validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));

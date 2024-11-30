@@ -27,7 +27,7 @@ namespace BE.Controllers
 			_logger = logger;
 		}
 
-		[HttpPost("api/[controller]")]
+		[HttpPost("[controller]")]
 		public async Task<IActionResult> SignIn(Login loginUser, [FromServices] Validation validation, [FromServices] JwtManager _jwtManager)
 		{
 			validation.AddValidator(new PasswordValidator(loginUser.username, loginUser.password, _userManager, _dbContext));

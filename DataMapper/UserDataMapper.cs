@@ -2,6 +2,7 @@
 using DomainModel;
 using DataAccessLayerDB;
 using Microsoft.AspNetCore.Identity;
+using System.Data;
 
 namespace DataMapper
 {
@@ -10,40 +11,27 @@ namespace DataMapper
 
 		public async Task<List<DTO.User.User>> ConvertUserListToUserFullDTOList(List<DomainModel.User> userList, UserManager<DomainModel.User> _userManager)
 		{
-			List<DTO.User.User> result = new List<DTO.User.User>();
-			
-			foreach (DomainModel.User user in userList)
+			return (List<DTO.User.User>)userList.Select(async (u) => new DTO.User.User()
 			{
-				List<string> roles = (List<string>)await _userManager.GetRolesAsync(user);
-				result.Add(new DTO.User.User()
-				{
-					id = Guid.Parse(user.Id),
-					rolename = roles.FirstOrDefault(),
-					firstname = user.firstname,
-					lastname = user.lastname,
-					username = user.UserName,
-					createdate = user.createdate,
-					updatedate = user.updatedate,
-					email = user.Email,
-				});
-			}
-			return result;
+				id = Guid.Parse(u.Id),
+				rolename = (await _userManager.GetRolesAsync(u)).FirstOrDefault(),
+				firstname = u.firstname,
+				lastname = u.lastname,
+				username = u.UserName,
+				createdate = u.createdate,
+				updatedate = u.updatedate,
+				email = u.Email
+			});
 		}
 
 		public List<UserPart> ConvertUserListToUserPartDTOList(List<DomainModel.User> userList)
 		{
-			List<UserPart> result = new List<UserPart>();
-
-			foreach (DomainModel.User user in userList)
+			return userList.Select(u => new UserPart()
 			{
-				result.Add(new UserPart()
-				{
-					id = Guid.Parse(user.Id),
-					fullname = user.Fullname,
-					username = user.UserName,
-				});
-			}
-			return result;
+				id = Guid.Parse(u.Id),
+				fullname = u.Fullname,
+				username = u.UserName,
+			}).ToList();
 		}
 
 		private DomainModel.User ConvertDTOto(DTO.User.User newUser)
@@ -58,12 +46,12 @@ namespace DataMapper
 			return _newUser;
 		}
 
-		public async Task<List<DomainModel.User>> GetUsersWithRoleAsync(PSDBContext _dbContext, UserManager<DomainModel.User> _userManager, string rolename, List<DomainModel.User> _users)
+		public async Task<List<DomainModel.User>> GetUsersWithRoleAsync(UserManager<DomainModel.User> _userManager, string rolename, List<DomainModel.User> _users)
 		{
 			List<DomainModel.User> output = new List<DomainModel.User>();
 			foreach(DomainModel.User user in _users)
 			{
-				if(await _userManager.IsInRoleAsync(user,rolename))
+				if(await _userManager.IsInRoleAsync(user, rolename))
 				{
 					output.Add(user);
 				}

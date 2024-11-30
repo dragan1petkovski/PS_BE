@@ -44,7 +44,7 @@ namespace BE.Controllers
         }
 
 		#region GET Methods
-		[HttpGet("api/[controller]/{id:guid?}")]
+		[HttpGet("[controller]/{id:guid?}")]
 		[Authorize(Roles = "Administrator")]
 		public async Task<IActionResult> Read(Guid? id, [FromServices] RoleManager<IdentityRole> _roleManager, [FromServices] UserDataMapper _userDataMapper, [FromServices] Validation validation)
 		{
@@ -70,7 +70,7 @@ namespace BE.Controllers
 			}
 		}
 
-		[HttpGet("api/[controller]/mapping/{type?}")]
+		[HttpGet("[controller]/mapping/{type?}")]
 		[Authorize(Roles = "Administrator, User")]
 		public async Task<IActionResult> ClientTeamMappings(string? type, [FromServices] RoleManager<IdentityRole> _roleManager, [FromServices] UserDataMapper _userDataMapper, [FromServices] Validation validation)
 		{
@@ -105,7 +105,7 @@ namespace BE.Controllers
 
 		#endregion
 		
-		[HttpPost("api/[controller]")]
+		[HttpPost("[controller]")]
 		[Authorize(Roles = "Administrator")]
 		public async Task<IActionResult> Create(PostTeam _newTeam, [FromServices] Validation validation)
         {
@@ -125,7 +125,7 @@ namespace BE.Controllers
 		}
         
 
-        [HttpPut("api/[controller]")]
+        [HttpPut("[controller]")]
         [Authorize(Roles ="Administrator")]
         public async Task<IActionResult> Update(PostTeamUpdate update, [FromServices] Validation validation)
         {
@@ -144,7 +144,7 @@ namespace BE.Controllers
 
 		}
 
-		[HttpDelete("api/[controller]/{itemid:guid}/{verificateionCode:int}")]
+		[HttpDelete("[controller]/{itemid:guid}/{verificateionCode:int}")]
         [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> Delete(Guid itemid, int verificateionCode, [FromServices] IConfiguration _configuration, [FromServices] CertificateService _certificateService, [FromServices] EmailNotificationService _emailNotificationService, [FromServices] AAAService.Core.Validation validation)
         {

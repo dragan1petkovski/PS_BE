@@ -42,7 +42,7 @@ namespace BE.Controllers
         }
 
         [Authorize(Roles = "User")]
-        [HttpGet("api/[controller]/credential")]
+        [HttpGet("[controller]/credential")]
         public async Task<IActionResult> GetCredentialClientsByUserId([FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -60,7 +60,7 @@ namespace BE.Controllers
 		}
 
 
-        [HttpGet("api/[controller]/certificate")]
+        [HttpGet("[controller]/certificate")]
         [Authorize(Roles = "User")]
         public async Task<IActionResult> GetCertificateClientsByUserId([FromServices] Validation validation)
         {
@@ -80,7 +80,7 @@ namespace BE.Controllers
 
 
 		[Authorize(Roles = "Administrator")]
-		[HttpGet("api/[controller]/full/{id:guid?}")]
+		[HttpGet("[controller]/full/{id:guid?}")]
         public async Task<IActionResult> GetAllFullClients(Guid id, [FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -111,7 +111,7 @@ namespace BE.Controllers
 
 
 		[Authorize(Roles = "Administrator")]
-		[HttpGet("api/[controller]/part")]
+		[HttpGet("[controller]/part")]
         public async Task<IActionResult> GetAllPartClients([FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -129,7 +129,7 @@ namespace BE.Controllers
 		}
 
 		[Authorize(Roles = "Administrator")]
-		[HttpPost("api/[controller]")]
+		[HttpPost("[controller]")]
 		public async Task<IActionResult> Create(PostClient postClient, [FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -147,7 +147,7 @@ namespace BE.Controllers
         }
 
         [Authorize(Roles ="Administrator")]
-        [HttpPut("api/[controller]")]
+        [HttpPut("[controller]")]
         public async Task<IActionResult> Update(ClientUpdate update, [FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -165,7 +165,7 @@ namespace BE.Controllers
 		}
 
 		[Authorize(Roles = "Administrator")]
-        [HttpDelete("api/[controller]/{itemid:guid}/{verificateionCode:int}")]
+        [HttpDelete("[controller]/{itemid:guid}/{verificateionCode:int}")]
         public async Task<IActionResult> Delete(Guid itemid, int verificateionCode, [FromServices] TeamService _teamService, [FromServices] CertificateService _certificateService, [FromServices] IConfiguration _configuration, [FromServices] EmailNotificationService _emailNotificationService, [FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));

@@ -180,7 +180,7 @@ namespace AppServices
             
 			update.Id = team.id;
 			update.name = team.name;
-			update.users = _dataMapper.ConvertUserListToUserPartDTOList(await _dataMapper.GetUsersWithRoleAsync(_dbContext, _userManager, "User", team.users));
+			update.users = _dataMapper.ConvertUserListToUserPartDTOList(await _dataMapper.GetUsersWithRoleAsync(_userManager, "User", team.users));
 			return (StatusMessages.Ok,update);
 
 		}

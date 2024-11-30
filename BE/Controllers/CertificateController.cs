@@ -43,7 +43,7 @@ namespace BE.Controllers
             _logger = logger;
 			_hubContext = hubContext;
         }
-        [HttpGet("api/[controller]/{clientid:guid}")]
+        [HttpGet("[controller]/{clientid:guid}")]
         public async Task<IActionResult> GetCertificateByClientID(Guid clientid, [FromServices] Validation validation)
         {
             validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -56,7 +56,7 @@ namespace BE.Controllers
         }
 
 
-        [HttpGet("api/[controller]/download/{teamid:guid}/{certificateid:guid}")]
+        [HttpGet("[controller]/download/{teamid:guid}/{certificateid:guid}")]
         public async Task<FileContentResult> DownloadCertificate(Guid teamid, Guid certificateid, [FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -72,7 +72,7 @@ namespace BE.Controllers
             return output.FileContent;
 		}
 
-		[HttpGet("api/[controller]/key/download/{teamid:guid}/{certificateid:guid}")]
+		[HttpGet("[controller]/key/download/{teamid:guid}/{certificateid:guid}")]
 		public async Task<FileContentResult> DownloadKey(Guid teamid, Guid certificateid, [FromServices] Validation validation)
 		{
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -88,7 +88,7 @@ namespace BE.Controllers
 		}
 
 
-		[HttpPost("api/[controller]")]
+		[HttpPost("[controller]")]
 		public async Task<IActionResult> UploadCertificate([FromForm] UploadCertificatecs up, [FromServices] SymmetricEncryption _symmetricEncryption, [FromServices] Validation validation)
 		{
 
@@ -113,7 +113,7 @@ namespace BE.Controllers
 
 		}
 
-		[HttpDelete("api/[controller]/{id:guid}/{teamid:guid}")]
+		[HttpDelete("[controller]/{id:guid}/{teamid:guid}")]
 		public async Task<IActionResult> Delete(Guid id, Guid teamid, [FromServices] Validation validation)
         {
 

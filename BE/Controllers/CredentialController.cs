@@ -45,7 +45,7 @@ namespace BE.Controllers
         }
 
 
-        [HttpGet("api/[controller]")]
+        [HttpGet("[controller]")]
 		public async Task<IActionResult> GetCredentialByClientID([FromQuery]Guid? tid,[FromQuery]Guid? cid,[FromQuery]Guid? credid, [FromServices] CredentialDataMapper dataMapper, [FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -79,7 +79,7 @@ namespace BE.Controllers
 			}
         }
 
-		[HttpGet("api/[controller]/personal/")]
+		[HttpGet("[controller]/personal/")]
 		public async Task<IActionResult> GetPersonalCredentialById([FromQuery] Guid? pfid, [FromQuery]Guid? credid, [FromServices] CredentialDataMapper _dataMapper, [FromServices] Validation validation)
 		{
 
@@ -130,7 +130,7 @@ namespace BE.Controllers
 
 		}
 
-		[HttpPost("api/[controller]")]
+		[HttpPost("[controller]")]
 		public async Task<IActionResult> SetCredential(PostCredential credential, [FromServices] SymmetricEncryption symmetricEncryption, [FromServices] IConfiguration configuration, [FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -153,7 +153,7 @@ namespace BE.Controllers
 
 		}
 
-		[HttpPost("api/[controller]/personal")]
+		[HttpPost("[controller]/personal")]
 		public async Task<IActionResult> AddPersonalCredential(PostPersonalCredential postPersonalCredential, [FromServices] SymmetricEncryption _symmetricEncryption, [FromServices] IConfiguration _configuration, [FromServices] Validation _validation)
 		{
 			_validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -171,7 +171,7 @@ namespace BE.Controllers
 			return StatusCode(status, status);
 		}
 
-		[HttpDelete("api/[controller]/{id:guid}/{teamid:guid}")]
+		[HttpDelete("[controller]/{id:guid}/{teamid:guid}")]
 		public async Task<IActionResult> Delete( Guid id,Guid teamid, [FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -190,7 +190,7 @@ namespace BE.Controllers
 			return StatusCode(status, status);
 		}
 
-        [HttpDelete("api/[controller]/personal/{id:guid}/{personalFolderId:guid?}")]
+        [HttpDelete("[controller]/personal/{id:guid}/{personalFolderId:guid?}")]
 		public async Task<IActionResult> DeletePersonal(Guid id, Guid? personalFolderId, [FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -208,7 +208,7 @@ namespace BE.Controllers
 			return StatusCode(status, status);
 		}
 
-        [HttpPut("api/[controller]")]
+        [HttpPut("[controller]")]
         public async Task<IActionResult> Update(PostUpdateCredential update, [FromServices] IConfiguration _configuration, [FromServices] SymmetricEncryption _symmetricEncryption, [FromServices] Validation validation)
         {
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -226,7 +226,7 @@ namespace BE.Controllers
 			return StatusCode(status, status);
 		}
 
-        [HttpPut("api/[controller]/personal")]
+        [HttpPut("[controller]/personal")]
         public async Task<IActionResult> UpdatePersonal([FromBody] PostUpdatePersonalCredential update, [FromServices] IConfiguration _configuration, [FromServices] SymmetricEncryption _symmetricEncryption, [FromServices] Validation validation)
 		{
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
@@ -275,7 +275,7 @@ namespace BE.Controllers
 
 		}
 
-		[HttpPost("api/[controller]/[action]")]
+		[HttpPost("[controller]/[action]")]
 		public async Task<IActionResult> GiveCredential(PostGiveCredential giveCredential, [FromServices] SymmetricEncryption _symmetricEncryption, [FromServices] IConfiguration _configuration, [FromServices] Validation validation)
 		{
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));

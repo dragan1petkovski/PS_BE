@@ -47,7 +47,7 @@ namespace BE.Controllers
 			_hubContext = hubContext;
 		}
 
-		[HttpGet("api/[controller]/{type?}/{id:guid?}")]
+		[HttpGet("[controller]/{type?}/{id:guid?}")]
 		[Authorize(Roles = "Administrator, User")]
 		public async Task<IActionResult> Read(string? type, Guid? id, [FromServices] Validation validation)
 		{
@@ -81,11 +81,11 @@ namespace BE.Controllers
 				{
 					return StatusCode(403, StatusMessages.AccessDenied);
 				}
-				return StatusCode(200, _dataMapper.ConvertUserListToUserPartDTOList(await _dataMapper.GetUsersWithRoleAsync(_dbContext, _userManager, "User", _service.GetAllUsers(_dbContext))));
+				return StatusCode(200, _dataMapper.ConvertUserListToUserPartDTOList(await _dataMapper.GetUsersWithRoleAsync(_userManager, "User", _service.GetAllUsers(_dbContext))));
 			}
 		}
 
-		[HttpGet("api/[controller]/[action]")]
+		[HttpGet("[controller]/[action]")]
 		[Authorize(Roles = "Administrator, User")]
 		public async Task<IActionResult> VerificationCode([FromServices] MailJetMailer emailService, [FromServices] Validation validation)
 		{
@@ -100,7 +100,7 @@ namespace BE.Controllers
 		}
 
 
-		[HttpPost("api/[controller]/{type?}")]
+		[HttpPost("[controller]/{type?}")]
 		[Authorize(Roles = "Administrator")]
 		public async Task<IActionResult> Create(string? type, PostUser user, [FromServices] MailJetMailer smtpclient, [FromServices] Validation validation)
 		{
@@ -129,7 +129,7 @@ namespace BE.Controllers
 		}
 
 
-		[HttpPost("api/[controller]/[action]")]
+		[HttpPost("[controller]/[action]")]
 		[Authorize(Roles = "Administrator, User")]
 		public async Task<IActionResult> ChangePassword(ChangePassword changePassword, [FromServices] Validation validation)
 		{
@@ -144,7 +144,7 @@ namespace BE.Controllers
 			return StatusCode(status, status);
 		}
 
-		[HttpPut("api/[controller]")]
+		[HttpPut("[controller]")]
 		[Authorize(Roles = "Administrator")]
 		public async Task<IActionResult> Update(PostUpdateUser updateUserDTO, [FromServices] Validation validation)
 		{
@@ -162,7 +162,7 @@ namespace BE.Controllers
 			return StatusCode(status, status);
 		}
 
-		[HttpPut("api/[controller]/[action]/{userid:guid:required}")]
+		[HttpPut("[controller]/[action]/{userid:guid:required}")]
 		[Authorize(Roles = "Administrator")]
 		public async Task<IActionResult> ResetPassword(Guid userid, [FromServices] Validation validation, [FromServices] MailJetMailer smtpclient)
 		{
@@ -177,7 +177,7 @@ namespace BE.Controllers
 
 		}
 
-        [HttpDelete("api/[controller]/{itemid:guid}/{verificateionCode:int}")]
+        [HttpDelete("[controller]/{itemid:guid}/{verificateionCode:int}")]
 		[Authorize(Roles = "Administrator")]
 		public async Task<IActionResult> Delete(Guid itemid, int verificateionCode,[FromServices] EmailNotificationService _emailNotificationService, [FromServices] Validation validation)
         {

@@ -120,7 +120,7 @@ namespace BE.Controllers
 		}
 
 		[Authorize(Roles = "Administrator")]
-		[HttpPost("api/deleterequest")]
+		[HttpPost("deleterequest")]
 		public async Task<IActionResult> DeleteVerificationRequest([FromBody] DeleteAdminRequest item, [FromServices] MailJetMailer _mailjetMailer, [FromServices] IConfiguration _configuration, [FromServices] Validation validation)
 		{
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
