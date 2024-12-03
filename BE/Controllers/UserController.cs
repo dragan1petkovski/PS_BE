@@ -30,11 +30,11 @@ namespace BE.Controllers
 		private readonly IConfiguration _configuration;
 		private readonly UserManager<DomainModel.User> _userManager;
 		private readonly JwtManager _jwtManager;
-		private readonly RoleManager<IdentityRole> _roleManager;
 		private readonly ILogger<UserService> _logger;
 		private readonly IHubContext<DataSync> _hubContext;
+		private readonly iEmailService _emailService;
 
-		public UserController(PSDBContext dbContext, UserService service, UserDataMapper dataMapper, IConfiguration configuration, UserManager<DomainModel.User> userManager, JwtManager jwtManager, RoleManager<IdentityRole> roleManager, ILogger<UserService> logger, IHubContext<DataSync> hubContext)
+		public UserController(PSDBContext dbContext, UserService service, UserDataMapper dataMapper, IConfiguration configuration, UserManager<DomainModel.User> userManager, JwtManager jwtManager, MailJetMailer emailService, ILogger<UserService> logger, IHubContext<DataSync> hubContext)
 		{
 			_dbContext = dbContext;
 			_service = service;
@@ -42,9 +42,9 @@ namespace BE.Controllers
 			_configuration = configuration;
 			_userManager = userManager;
 			_jwtManager = jwtManager;
-			_roleManager = roleManager;
 			_logger = logger;
 			_hubContext = hubContext;
+			_emailService = emailService;
 		}
 
 		[HttpGet("[controller]/{type?}/{id:guid?}")]
@@ -87,7 +87,7 @@ namespace BE.Controllers
 
 		[HttpGet("[controller]/[action]")]
 		[Authorize(Roles = "Administrator, User")]
-		public async Task<IActionResult> VerificationCode([FromServices] MailJetMailer emailService, [FromServices] Validation validation)
+		public async Task<IActionResult> VerificationCode([FromServices] Validation validation)
 		{
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
 			if (!(await validation.ProcessAsync()))
@@ -95,14 +95,14 @@ namespace BE.Controllers
 				return StatusCode(401, StatusMessages.UnauthorizedAccess);
 			}
 			(_, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
-			StatusMessages status = await _service.GetVerificationCode(userid, _dbContext, _configuration, emailService, _logger);
+			StatusMessages status = await _service.GetVerificationCode(userid, _dbContext, _configuration, _emailService, _logger);
 			return StatusCode(status, status);
 		}
 
 
 		[HttpPost("[controller]/{type?}")]
 		[Authorize(Roles = "Administrator")]
-		public async Task<IActionResult> Create(string? type, PostUser user, [FromServices] MailJetMailer smtpclient, [FromServices] Validation validation)
+		public async Task<IActionResult> Create(string? type, PostUser user, [FromServices] Validation validation)
 		{
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
 			validation.AddValidator(new IsUserAdmin(Request.Headers.Authorization, _userManager));
@@ -114,11 +114,11 @@ namespace BE.Controllers
 			}
 			if(type == "admin")
 			{
-				(status, data) = await _service.AddUser("admin", user, _dbContext, _configuration, smtpclient, _logger);
+				(status, data) = await _service.AddUser("admin", user, _dbContext, _configuration, _emailService, _logger);
 			}
 			else
 			{
-				(status, data) = await _service.AddUser("user",user, _dbContext, _configuration, smtpclient, _logger);
+				(status, data) = await _service.AddUser("user",user, _dbContext, _configuration, _emailService, _logger);
 			}
 			
 			if(status == StatusMessages.AddNewUser)
@@ -164,7 +164,7 @@ namespace BE.Controllers
 
 		[HttpPut("[controller]/[action]/{userid:guid:required}")]
 		[Authorize(Roles = "Administrator")]
-		public async Task<IActionResult> ResetPassword(Guid userid, [FromServices] Validation validation, [FromServices] MailJetMailer smtpclient)
+		public async Task<IActionResult> ResetPassword(Guid userid, [FromServices] Validation validation)
 		{
 			validation.AddValidator(new TokenValidator(Request.Headers.Authorization, _userManager));
 			validation.AddValidator(new IsUserAdmin(Request.Headers.Authorization, _userManager));
@@ -172,7 +172,7 @@ namespace BE.Controllers
 			{
 				return StatusCode(401, StatusMessages.UnauthorizedAccess);
 			}
-			StatusMessages status = await _service.ResetPassword(userid, _dbContext, _userManager, smtpclient, _configuration, _logger);
+			StatusMessages status = await _service.ResetPassword(userid, _dbContext, _userManager, _emailService, _configuration, _logger);
 			return StatusCode(status, status);
 
 		}

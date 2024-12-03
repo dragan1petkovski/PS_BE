@@ -1,7 +1,7 @@
 ﻿
 namespace LogginMessages
 {
-	public static class EntityLog
+	public class EntityLog
 	{
 		public static Func<string, string, string> NotFound = (string type, string entityId) => $"{DateTime.Now} - {type} entity not found - {entityId}";
 

@@ -23,7 +23,7 @@ namespace AppServices
             return _dbContext.Users.ToList();
         }
 
-		public async Task<(StatusMessages,DTO.User.User)> AddUser(string type , PostUser _newUser, PSDBContext _dbContext, IConfiguration _configuration, MailJetMailer _smtpclient, ILogger<UserService> _logger)
+		public async Task<(StatusMessages,DTO.User.User)> AddUser(string type , PostUser _newUser, PSDBContext _dbContext, IConfiguration _configuration, iEmailService _smtpclient, ILogger<UserService> _logger)
         {
 			bool ifExit = true;
 			DTO.User.User syncUser = new DTO.User.User();
@@ -123,7 +123,7 @@ namespace AppServices
 			}
 		}
 
-        public async Task<StatusMessages> ResetPassword(Guid userid, PSDBContext _dbContext, UserManager<DomainModel.User> _userManager, MailJetMailer _smtpclient, IConfiguration _configuration, ILogger<UserService> _logger)
+        public async Task<StatusMessages> ResetPassword(Guid userid, PSDBContext _dbContext, UserManager<DomainModel.User> _userManager, iEmailService _smtpclient, IConfiguration _configuration, ILogger<UserService> _logger)
 		{
 			DomainModel.User user = null;
 			try
@@ -230,7 +230,7 @@ namespace AppServices
 			}
 		}
     
-        public async Task<StatusMessages> GetVerificationCode(Guid _userid, PSDBContext _dbContext, IConfiguration _configuration, MailJetMailer smtpClinet , ILogger<UserService> _logger)
+        public async Task<StatusMessages> GetVerificationCode(Guid _userid, PSDBContext _dbContext, IConfiguration _configuration, iEmailService smtpClinet , ILogger<UserService> _logger)
         {
 			DomainModel.User loggedUser = new DomainModel.User();
 			try

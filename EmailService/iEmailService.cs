@@ -12,5 +12,7 @@ namespace EmailService
 		public void EmailConfigurationFromAppSettings(IConfiguration configuration, string configSelection);
 		public Task<bool> SendEmail(string toMailAddress, string emailMessage, string emailSubject);
 
+		public string GetFromMailAddress();
+
 	}
 }

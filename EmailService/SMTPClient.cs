@@ -65,5 +65,9 @@ namespace EmailService
 			}
 		}
 
+		public string GetFromMailAddress()
+		{
+			return _fromEmail;
+		}
 	}
 }
