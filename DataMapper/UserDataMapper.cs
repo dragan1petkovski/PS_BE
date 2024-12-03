@@ -9,22 +9,27 @@ namespace DataMapper
 	public class UserDataMapper
 	{
 
-		public async Task<List<DTO.User.User>> ConvertUserListToUserFullDTOList(List<DomainModel.User> userList, UserManager<DomainModel.User> _userManager)
+		public async Task<List<DTO.User.User>> ConvertToFullDTO(List<DomainModel.User> userList, UserManager<DomainModel.User> _userManager)
 		{
-			return (List<DTO.User.User>)userList.Select(async (u) => new DTO.User.User()
+			List<DTO.User.User> output = new List<DTO.User.User>();
+			foreach( DomainModel.User user in userList )
 			{
-				id = Guid.Parse(u.Id),
-				rolename = (await _userManager.GetRolesAsync(u)).FirstOrDefault(),
-				firstname = u.firstname,
-				lastname = u.lastname,
-				username = u.UserName,
-				createdate = u.createdate,
-				updatedate = u.updatedate,
-				email = u.Email
-			});
+				output.Add(new DTO.User.User()
+				{
+					id = Guid.Parse(user.Id),
+					rolename = (await _userManager.GetRolesAsync(user)).FirstOrDefault(),
+					firstname = user.firstname,
+					lastname = user.lastname,
+					username = user.UserName,
+					createdate = user.createdate,
+					updatedate = user.updatedate,
+					email = user.Email
+				});
+			}
+			return output;
 		}
 
-		public List<UserPart> ConvertUserListToUserPartDTOList(List<DomainModel.User> userList)
+		public List<UserPart> ConvertToPartDTO(List<DomainModel.User> userList)
 		{
 			return userList.Select(u => new UserPart()
 			{
@@ -34,7 +39,7 @@ namespace DataMapper
 			}).ToList();
 		}
 
-		private DomainModel.User ConvertDTOto(DTO.User.User newUser)
+		private DomainModel.User ConvertToModel(DTO.User.User newUser)
 		{
 			DomainModel.User _newUser = new DomainModel.User();
 			_newUser.Id = Guid.NewGuid().ToString();

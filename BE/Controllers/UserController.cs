@@ -65,7 +65,7 @@ namespace BE.Controllers
 				(bool _, Guid userid) = _jwtManager.GetUserID(Request.Headers.Authorization);
 				if (!id.HasValue)
 				{
-					return StatusCode(200, (await _dataMapper.ConvertUserListToUserFullDTOList(_service.GetAllUsers(_dbContext),_userManager)).Where(u => u.id != userid).ToList());
+					return StatusCode(200, await _dataMapper.ConvertToFullDTO(_service.GetAllUsers(_dbContext).Where(u => u.Id != userid.ToString()).ToList(), _userManager));
 				}
 				else
 				{
@@ -81,7 +81,7 @@ namespace BE.Controllers
 				{
 					return StatusCode(403, StatusMessages.AccessDenied);
 				}
-				return StatusCode(200, _dataMapper.ConvertUserListToUserPartDTOList(await _dataMapper.GetUsersWithRoleAsync(_userManager, "User", _service.GetAllUsers(_dbContext))));
+				return StatusCode(200, _dataMapper.ConvertToPartDTO(await _dataMapper.GetUsersWithRoleAsync(_userManager, "User", _service.GetAllUsers(_dbContext))));
 			}
 		}
 

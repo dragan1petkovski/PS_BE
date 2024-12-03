@@ -38,7 +38,7 @@ namespace AppServices
 				return new List<DTO.Certificate.Certificate>();
 			}
 			allCertificates = user.teams.Where(t => t.client.id == clientid && t.certificates.Count > 0).Select(t => new TeamCertificatesMap() { teamid = t.id, clientid = t.client.id, teamname = t.name, certificates = t.certificates }).ToList();
-			return certificateDataMapper.ConvertCertificateListToCertificateDTOList(allCertificates);
+			return certificateDataMapper.ConvertToDTO(allCertificates);
 
 		}
 

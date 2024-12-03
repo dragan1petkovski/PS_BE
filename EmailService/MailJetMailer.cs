@@ -26,6 +26,7 @@ namespace EmailService
 		}
 		public async Task<bool> SendEmail(string toMailAddress, string EmailMessage, string EmailSubject)
 		{
+			Console.WriteLine($"{DateTime.Now} - {toMailAddress}\n{EmailMessage}");
 			MailjetRequest request = new MailjetRequest
 			{
 				Resource = Send.Resource,

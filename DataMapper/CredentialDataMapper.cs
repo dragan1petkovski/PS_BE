@@ -6,7 +6,7 @@ namespace DataMapper
 {
 	public class CredentialDataMapper
 	{
-		public List<DTO.Credential.Credential> ConvertToCredentialDTO(List<TeamCredentialsMap> credentials)
+		public List<DTO.Credential.Credential> ConvertToDTO(List<TeamCredentialsMap> credentials)
 		{
 			List<DTO.Credential.Credential> output = new List<DTO.Credential.Credential>();
 
@@ -34,7 +34,7 @@ namespace DataMapper
 			return output;
 		}
 	
-		public DTO.Credential.Credential ConvertToCredentialDTO(DomainModel.Credential credential)
+		public DTO.Credential.Credential ConvertToDTO(DomainModel.Credential credential)
 		{
 			DTO.Credential.Credential output = new DTO.Credential.Credential();
 			output.id = credential.id;
@@ -46,7 +46,7 @@ namespace DataMapper
 			return output;
 		}
 	
-		public PersonalCredential ConvertToPersonalCredentialDTO(DomainModel.Credential credential)
+		public PersonalCredential ConvertToPersonalDTO(DomainModel.Credential credential)
 		{
 			PersonalCredential output = new PersonalCredential();
 			output.id = credential.id;

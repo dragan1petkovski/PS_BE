@@ -7,7 +7,7 @@ namespace DataMapper
 {
 	public class CertificateDataMapper
 	{
-		public List<DTO.Certificate.Certificate> ConvertCertificateListToCertificateDTOList(List<TeamCertificatesMap> certificates)
+		public List<DTO.Certificate.Certificate> ConvertToDTO(List<TeamCertificatesMap> certificates)
 		{
 			List<DTO.Certificate.Certificate> result = new List<DTO.Certificate.Certificate>();
 

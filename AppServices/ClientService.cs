@@ -30,7 +30,7 @@ namespace AppServices
             {
                 return (StatusMessages.UnauthorizedAccess, null);
             }
-			return (StatusMessages.Ok,clientDataMapper.ConvertClientListToClientDTOListForUsers(user.teams.Where(t => t.credentials.Count > 0).Select(t => t.client).Distinct().ToList()));
+			return (StatusMessages.Ok,clientDataMapper.ConvertToPartDTO(user.teams.Where(t => t.credentials.Count > 0).Select(t => t.client).Distinct().ToList()));
 
 		}
 
@@ -52,7 +52,7 @@ namespace AppServices
             {
                 return (StatusMessages.UnauthorizedAccess, null);
             }
-			return (StatusMessages.Ok, clientDataMapper.ConvertClientListToClientDTOListForUsers(user.teams.Where(t => t.certificates.Count > 0).Select(t => t.client).Distinct().ToList()));
+			return (StatusMessages.Ok, clientDataMapper.ConvertToPartDTO(user.teams.Where(t => t.certificates.Count > 0).Select(t => t.client).Distinct().ToList()));
 			
 		}
 
@@ -67,7 +67,7 @@ namespace AppServices
 			{
 				return (StatusMessages.UnableToService, null);
 			}
-			return (StatusMessages.Ok, dataMapper.ConvertClientListToClientDTOListForAdmins(clients));
+			return (StatusMessages.Ok, dataMapper.ConvertToFullDTO(clients));
 		}
 
 		public (StatusMessages, List<ClientForUsers>) GetAllClientsForUser(PSDBContext _dbContext, ClientDataMapper dataMapper)
@@ -81,7 +81,7 @@ namespace AppServices
             {
                 return (StatusMessages.UnableToService,null);
             }
-            return (StatusMessages.Ok,dataMapper.ConvertClientListToClientDTOListForUsers(clients));
+            return (StatusMessages.Ok,dataMapper.ConvertToPartDTO(clients));
         }
 
         public (StatusMessages,ClientForAdmins) Create(PSDBContext _dbContext,PostClient postClient)

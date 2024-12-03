@@ -19,7 +19,7 @@ namespace AppServices
         {
 			try
 			{
-				return (StatusMessages.Ok,_dataMapper.ConvertTeamListToDTOList(_dbContext.Teams.Include(t => t.client).ToList()));
+				return (StatusMessages.Ok,_dataMapper.ConvertToDTO(_dbContext.Teams.Include(t => t.client).ToList()));
 			}
             catch
 			{
@@ -180,7 +180,7 @@ namespace AppServices
             
 			update.Id = team.id;
 			update.name = team.name;
-			update.users = _dataMapper.ConvertUserListToUserPartDTOList(await _dataMapper.GetUsersWithRoleAsync(_userManager, "User", team.users));
+			update.users = _dataMapper.ConvertToPartDTO(await _dataMapper.GetUsersWithRoleAsync(_userManager, "User", team.users));
 			return (StatusMessages.Ok,update);
 
 		}

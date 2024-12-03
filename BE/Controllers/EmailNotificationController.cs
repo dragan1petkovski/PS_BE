@@ -154,7 +154,7 @@ namespace BE.Controllers
 			deleteItem.verificationCode = code;
 			deleteItem.createdate = DateTime.Now;
 
-			if (await _emailService.SendEmail(_emailService.GetFromMailAddress(), message.GetVerificationCode(user.NormalizedUserName, code),message.Subject ))
+			if (await _emailService.SendEmail(user.NormalizedEmail, message.GetVerificationCode(user.NormalizedUserName, code),message.Subject ))
 			{
 				_dbContext.deleteVerifications.Add(deleteItem);
 				_dbContext.SaveChanges();

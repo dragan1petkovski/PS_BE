@@ -6,7 +6,7 @@ namespace DataMapper
 {
 	public class TeamDataMapper
 	{
-		public List<ClientTeamMapping> ConvertToClientTeamMappingList(List<DomainModel.Team> teams)
+		public List<ClientTeamMapping> ConvertToClientTeamMapping(List<DomainModel.Team> teams)
 		{
 			return teams.Select(t => new ClientTeamMapping()
 			{
@@ -18,7 +18,7 @@ namespace DataMapper
 
 		}
 
-		public List<DTO.Team.Team> ConvertTeamListToDTOList(List<DomainModel.Team> teams)
+		public List<DTO.Team.Team> ConvertToDTO(List<DomainModel.Team> teams)
 		{
 			return teams.Select(t => new DTO.Team.Team()
 			{

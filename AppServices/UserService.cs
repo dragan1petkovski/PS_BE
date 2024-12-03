@@ -99,7 +99,7 @@ namespace AppServices
 
 				try
 				{
-					if (await _smtpclient.SendEmail(_smtpclient.GetFromMailAddress(), messages.ResetPasswordBody(newUser.UserName, newUser.Id), messages.Subject))
+					if (await _smtpclient.SendEmail(newUser.Email, messages.ResetPasswordBody(newUser.UserName, newUser.Id), messages.Subject))
 					{
 						_dbContext.Users.Add(newUser);
 					}
@@ -151,7 +151,7 @@ namespace AppServices
 
 			EmailMessages message = new EmailMessages(_configuration);
 
-			if (await _smtpclient.SendEmail(_smtpclient.GetFromMailAddress(), message.SetNewPasswordBody(user.NormalizedUserName, resetPassword.Id.ToString()),message.Subject))
+			if (await _smtpclient.SendEmail(user.Email, message.SetNewPasswordBody(user.NormalizedUserName, resetPassword.Id.ToString()),message.Subject))
 			{
 				try
 				{
@@ -264,7 +264,7 @@ namespace AppServices
 			
 			try
 			{
-				if (await smtpClinet.SendEmail(smtpClinet.GetFromMailAddress(), message.GetVerificationCode(loggedUser.NormalizedUserName,code), message.Subject))
+				if (await smtpClinet.SendEmail(loggedUser.Email, message.GetVerificationCode(loggedUser.NormalizedUserName,code), message.Subject))
 				{
 					_dbContext.EmailNotifiers.Add(verificationCode);
 					_dbContext.SaveChanges();
@@ -372,7 +372,7 @@ namespace AppServices
 			output.username = loggedUser.UserName;
 			output.email = loggedUser.Email;
 
-			output.clientTeamMapping = teamService.ConvertToClientTeamMappingList(loggedUser.teams);
+			output.clientTeamMapping = teamService.ConvertToClientTeamMapping(loggedUser.teams);
 			return output;
 		}
 

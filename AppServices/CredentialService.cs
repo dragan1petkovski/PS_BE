@@ -108,7 +108,7 @@ namespace AppServices
 			teams = user.teams.Where(t => t.client.id == clientid)
 							  .Select(t => new TeamCredentialsMap() { teamid = t.id, teamname = t.name, credentials = t.credentials, clientid = clientid }).ToList();
 
-			return (StatusMessages.Ok, dataMapper.ConvertToCredentialDTO(teams));
+			return (StatusMessages.Ok, dataMapper.ConvertToDTO(teams));
 		}
 
 		//Return Single Credential that belong to Client
@@ -149,7 +149,7 @@ namespace AppServices
 				return (StatusMessages.CredentialNotexist, null);
 			}
 
-			return (StatusMessages.Ok, dataMapper.ConvertToCredentialDTO(credential));
+			return (StatusMessages.Ok, dataMapper.ConvertToDTO(credential));
 		}
 
 		//Return Single Personal Credential that belong to user
